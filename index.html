@@ -515,7 +515,9 @@ select:focus, input:focus, textarea:focus{
   position:absolute;
   top:44px;
   right:0;
-  width:300px;
+  width:max-content;
+  min-width:300px;
+  max-width:min(440px, 90vw);
   max-height:80vh;
   overflow-y:auto;
   background:var(--paper-2);
@@ -570,13 +572,64 @@ select:focus, input:focus, textarea:focus{
   margin-top:12px;
 }
 
-.colour-grid{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
+.settings-view h3{
+  font-family:'Fraunces',serif;
+  font-size:15px;
+  font-weight:600;
+  margin:0 0 10px;
 }
 
-.colour-row{
+.settings-back{
+  background:none;
+  border:none;
+  color:var(--accent);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  text-transform:none;
+  letter-spacing:normal;
+  padding:0;
+  margin-bottom:10px;
+  cursor:pointer;
+}
+.settings-back:hover{ opacity:0.85; }
+
+.settings-menu-row{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:2px;
+  padding:10px 12px;
+  margin-bottom:8px;
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink);
+  text-transform:none;
+  letter-spacing:normal;
+  cursor:pointer;
+}
+.settings-menu-row:hover{ opacity:0.85; }
+.settings-menu-row .chevron{
+  font-family:'IBM Plex Mono',monospace;
+  color:var(--accent);
+  font-size:15px;
+}
+
+.category-manage-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-height:50vh;
+  overflow-y:auto;
+}
+
+.category-manage-item{
   display:flex;
   align-items:center;
   gap:8px;
@@ -585,6 +638,57 @@ select:focus, input:focus, textarea:focus{
   border-radius:2px;
   background:var(--paper);
   font-size:13px;
+}
+
+.category-manage-name{
+  flex:1;
+  min-width:0;
+  overflow-wrap:break-word;
+}
+
+.category-kebab-btn{
+  flex-shrink:0;
+  width:28px;
+  height:28px;
+  border-radius:4px;
+  background:transparent;
+  border:1px solid var(--line);
+  color:var(--ink);
+  font-size:15px;
+  line-height:1;
+  padding:0;
+  cursor:pointer;
+}
+.category-kebab-btn:hover{ background:var(--accent-soft); }
+
+/* Inline-expanding Edit/Delete row, shown right under a category row when
+   its "⋮" is tapped. Kept as normal in-flow content (not an absolutely
+   positioned popup) so it can never get clipped by the list's own scrollbar. */
+.category-inline-actions{
+  display:flex;
+  gap:8px;
+  padding:8px 10px;
+  margin-top:-2px;
+  background:var(--accent-soft);
+  border:1px dashed var(--accent);
+  border-radius:2px;
+}
+.category-inline-actions button{ flex:1; }
+.category-inline-actions .category-delete-btn{
+  background:transparent;
+  color:var(--stamp);
+  border:1px solid var(--stamp);
+}
+
+.category-delete-confirm{
+  flex-direction:column;
+  align-items:stretch;
+  background:var(--stamp-soft);
+  border-color:var(--stamp);
+}
+.category-delete-confirm-text{
+  font-size:12.5px;
+  line-height:1.5;
 }
 
 .colour-swatch-btn{
@@ -1046,8 +1150,8 @@ button:hover{ opacity:0.85; }
     max-height:75vh;
   }
 
-  .colour-grid{ gap:8px; }
-  .colour-row{ flex:1 1 100%; }
+  .settings-menu-row{ padding:12px; }
+  .category-manage-list{ max-height:none; }
 
   .delete-range-row{ flex-direction:column; }
 
@@ -1086,32 +1190,75 @@ button:hover{ opacity:0.85; }
     <div style="display:flex; gap:10px; align-items:center;">
       <button type="button" id="signOutBtn" class="icon-btn" title="Sign out" style="width:auto; padding:0 10px; font-size:11px; font-family:'IBM Plex Mono',monospace;">Sign out</button>
       <div class="settings-wrap">
-        <button type="button" id="settingsBtn" class="icon-btn" title="Category colours" aria-haspopup="true" aria-expanded="false">&#9881;</button>
+        <button type="button" id="settingsBtn" class="icon-btn" title="Settings" aria-haspopup="true" aria-expanded="false">&#9881;</button>
         <div class="settings-panel" id="settingsPanel" style="display:none;">
-          <h3>Category colours</h3>
-          <div class="colour-grid" id="colourGrid"></div>
-          <div class="settings-actions">
-            <button class="secondary" id="settingsCancel">Cancel</button>
-            <button class="stamp" id="settingsSave">Save</button>
-          </div>
-          <hr class="settings-divider">
-          <h3>Delete past entries</h3>
-          <p class="settings-hint">Permanently deletes saved plans (timetable + to-do list) for every day in the range below. This can't be undone.</p>
-          <div class="delete-range-row">
-            <div class="field">
-              <label for="deleteRangeFrom">From</label>
-              <input type="date" id="deleteRangeFrom">
+
+          <!-- MAIN SETTINGS VIEW -->
+          <div class="settings-view" id="settingsMainView">
+            <h3>Settings</h3>
+            <button type="button" class="settings-menu-row" id="openCategoryMenuBtn">
+              <span>Category</span><span class="chevron">&#8250;</span>
+            </button>
+            <hr class="settings-divider">
+            <h3>Delete past entries</h3>
+            <p class="settings-hint">Permanently deletes saved plans (timetable + to-do list) for every day in the range below. This can't be undone.</p>
+            <div class="delete-range-row">
+              <div class="field">
+                <label for="deleteRangeFrom">From</label>
+                <input type="date" id="deleteRangeFrom">
+              </div>
+              <div class="field">
+                <label for="deleteRangeTo">To</label>
+                <input type="date" id="deleteRangeTo">
+              </div>
             </div>
-            <div class="field">
-              <label for="deleteRangeTo">To</label>
-              <input type="date" id="deleteRangeTo">
+            <p class="delete-range-summary" id="deleteRangeSummary"></p>
+            <div class="settings-actions">
+              <button class="secondary" id="deleteRangeCancelBtn" style="display:none;">Cancel</button>
+              <button class="stamp" id="deleteRangeBtn" disabled>Delete entries in range</button>
             </div>
           </div>
-          <p class="delete-range-summary" id="deleteRangeSummary"></p>
-          <div class="settings-actions">
-            <button class="secondary" id="deleteRangeCancelBtn" style="display:none;">Cancel</button>
-            <button class="stamp" id="deleteRangeBtn" disabled>Delete entries in range</button>
+
+          <!-- CATEGORY SUB-MENU -->
+          <div class="settings-view" id="settingsCategoryMenuView" style="display:none;">
+            <button type="button" class="settings-back" id="backFromCategoryMenuBtn">&#8249; Settings</button>
+            <h3>Category</h3>
+            <button type="button" class="settings-menu-row" id="openCategoryColoursBtn">
+              <span>Category colours</span><span class="chevron">&#8250;</span>
+            </button>
+            <button type="button" class="settings-menu-row" id="openCategoryCreateBtn">
+              <span>Create new category</span><span class="chevron">&#8250;</span>
+            </button>
           </div>
+
+          <!-- CATEGORY COLOURS / MANAGE LIST -->
+          <div class="settings-view" id="settingsCategoryColoursView" style="display:none;">
+            <button type="button" class="settings-back" id="backFromColoursBtn">&#8249; Category</button>
+            <h3>Category colours</h3>
+            <ul class="category-manage-list" id="categoryManageList"></ul>
+          </div>
+
+          <!-- CREATE / EDIT CATEGORY (shared form) -->
+          <div class="settings-view" id="settingsCategoryFormView" style="display:none;">
+            <button type="button" class="settings-back" id="backFromCategoryFormBtn">&#8249; Category</button>
+            <h3 id="categoryFormTitle">Create new category</h3>
+            <div class="field" style="margin-bottom:10px;">
+              <label for="categoryFormName">Name</label>
+              <input type="text" id="categoryFormName" placeholder="e.g. Errands">
+            </div>
+            <div class="field" style="margin-bottom:6px;">
+              <label>Colour</label>
+              <span class="colour-swatch-btn" id="categoryFormSwatch" style="background:#3B6EA5;">
+                <input type="color" id="categoryFormColorInput" value="#3B6EA5">
+              </span>
+            </div>
+            <p class="recurring-error" id="categoryFormError"></p>
+            <div class="settings-actions">
+              <button class="secondary" id="categoryFormCancelBtn">Cancel</button>
+              <button class="stamp" id="categoryFormSaveBtn">Add category</button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -1420,7 +1567,10 @@ function pxFromMinutes(m) { return VPAD + ((m - DAY_START) / SLOT_MIN) * SLOT_H;
 const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const orderedWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const CATEGORIES = [
+// Starting point only — used to seed the editable category list the very
+// first time the app runs. After that, the saved 'categories' list (which
+// the person can add to, rename, recolour, or delete from) is authoritative.
+const DEFAULT_CATEGORIES = [
   { name: 'Work', color: '#3B6EA5' },
   { name: 'Meeting', color: '#D9622B' },
   { name: 'Study', color: '#3E8E7E' },
@@ -1429,45 +1579,44 @@ const CATEGORIES = [
   { name: 'Break', color: '#8A8371' },
   { name: 'Other', color: '#4A4A4A' }
 ];
-let categoryColors = {}; // name -> custom hex, loaded from storage; falls back to CATEGORIES default
-let editingColors = {};  // working copy while the settings panel is open
+let categories = []; // [{ name, color }] — the live, editable list; loaded in init()
+
 function categoryColor(name) {
-  if (categoryColors[name]) return categoryColors[name];
-  const c = CATEGORIES.find(c => c.name === name);
-  return c ? c.color : '#4A4A4A';
+  const c = categories.find(c => c.name === name);
+  return c ? c.color : '#4A4A4A'; // fallback grey for an entry saved under a category that's since been renamed/deleted
 }
-async function saveCategoryColors() {
-  try { await dbSet('category-colors', JSON.stringify(categoryColors)); }
-  catch (err) { statusMsg.textContent = 'Could not save colour — please try again.'; }
+async function saveCategories() {
+  try { await dbSet('categories', JSON.stringify(categories)); }
+  catch (err) { statusMsg.textContent = 'Could not save categories — please try again.'; }
 }
-async function loadCategoryColors() {
+async function loadCategories() {
   try {
-    const result = await dbGet('category-colors');
-    categoryColors = (result && result.value) ? JSON.parse(result.value) : {};
-  } catch (err) { categoryColors = {}; }
+    const result = await dbGet('categories');
+    if (result && result.value) { categories = JSON.parse(result.value); return; }
+  } catch (err) { /* fall through to defaults below */ }
+  // First run (or the read failed): start from the built-in defaults, but
+  // carry over any colours saved under the old, pre-custom-categories format.
+  let legacyColors = {};
+  try {
+    const legacy = await dbGet('category-colors');
+    if (legacy && legacy.value) legacyColors = JSON.parse(legacy.value);
+  } catch (err) { /* no legacy data — fine */ }
+  categories = DEFAULT_CATEGORIES.map(c => ({ name: c.name, color: legacyColors[c.name] || c.color }));
+  await saveCategories(); // persist immediately so this migration only ever runs once
 }
-function renderColourGrid() {
-  const colourGrid = document.getElementById('colourGrid');
-  colourGrid.innerHTML = '';
-  CATEGORIES.forEach(cat => {
-    const current = editingColors[cat.name] || categoryColor(cat.name);
-    const row = document.createElement('div');
-    row.className = 'colour-row';
-    row.innerHTML = `
-      <span class="colour-swatch-btn" style="background:${current}">
-        <input type="color" data-category="${cat.name}" value="${current}">
-      </span>
-      <span>${cat.name}</span>
-    `;
-    colourGrid.appendChild(row);
-  });
-  colourGrid.querySelectorAll('input[type="color"]').forEach(input => {
-    input.addEventListener('input', (e) => {
-      const cat = e.target.dataset.category;
-      editingColors[cat] = e.target.value;
-      e.target.closest('.colour-swatch-btn').style.background = e.target.value;
-      // Preview only — nothing is applied to the calendar or saved until "Save" is pressed.
+
+// Rebuilds the category <option> lists used by the event drawer and the
+// recurring-event form. Called on load and after any create/edit/delete.
+function renderCategorySelectOptions() {
+  [drawerCategory, recurCategorySel].forEach(sel => {
+    const prevValue = sel.value;
+    sel.innerHTML = '';
+    categories.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      sel.appendChild(opt);
     });
+    if (categories.some(c => c.name === prevValue)) sel.value = prevValue;
   });
 }
 
@@ -1522,10 +1671,8 @@ BOUNDARIES.forEach(m => {
   const opt2 = document.createElement('option'); opt2.value = m; opt2.textContent = boundaryLabel(m);
   drawerEnd.appendChild(opt2);
 });
-CATEGORIES.forEach(c => {
-  const opt = document.createElement('option'); opt.value = c.name; opt.textContent = c.name;
-  drawerCategory.appendChild(opt);
-});
+// Category options for drawerCategory/recurCategorySel are populated by
+// renderCategorySelectOptions() once the saved category list loads in init().
 
 /* ---------- State ---------- */
 let events = [];       // {id, start, end, category, activity, note}
@@ -1613,7 +1760,7 @@ calendarGrid.addEventListener('click', (e) => {
   if (suppressGridClick) { suppressGridClick = false; return; }
   if (e.target !== calendarGrid && e.target !== linesLayer && e.target !== eventsLayer) return;
   const start = minutesFromClientY(e.clientY);
-  openDrawer({ start, end: Math.min(DAY_END, start + 60), category: CATEGORIES[0].name, activity: '', note: '' });
+  openDrawer({ start, end: Math.min(DAY_END, start + 60), category: categories[0] ? categories[0].name : 'Other', activity: '', note: '' });
 });
 
 /* ---------- Dragging & resizing existing blocks ---------- */
@@ -1925,9 +2072,15 @@ wireToggle('recurringToggle', 'recurringBody');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 
+const SETTINGS_VIEW_IDS = ['settingsMainView', 'settingsCategoryMenuView', 'settingsCategoryColoursView', 'settingsCategoryFormView'];
+function showSettingsView(viewId) {
+  SETTINGS_VIEW_IDS.forEach(id => {
+    document.getElementById(id).style.display = (id === viewId) ? 'block' : 'none';
+  });
+}
+
 function openSettingsPanel() {
-  editingColors = { ...categoryColors };
-  renderColourGrid();
+  showSettingsView('settingsMainView');
   resetDeleteRangeUI();
   settingsPanel.style.display = 'block';
   settingsBtn.setAttribute('aria-expanded', 'true');
@@ -1935,24 +2088,190 @@ function openSettingsPanel() {
 function closeSettingsPanel() {
   settingsPanel.style.display = 'none';
   settingsBtn.setAttribute('aria-expanded', 'false');
+  openCategoryKebabIdx = null;
+  deleteConfirmCategoryIdx = null;
 }
 settingsBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   const isOpen = settingsPanel.style.display !== 'none';
   if (isOpen) closeSettingsPanel(); else openSettingsPanel();
 });
-document.getElementById('settingsCancel').addEventListener('click', closeSettingsPanel);
-document.getElementById('settingsSave').addEventListener('click', async () => {
-  categoryColors = { ...editingColors };
-  await saveCategoryColors();
-  renderEvents();        // re-colours every block on today's view, old or new, since colour is looked up by category name
-  renderRecurringList();
-  closeSettingsPanel();
-  statusMsg.textContent = 'Category colours updated.';
-});
 document.addEventListener('click', (e) => {
   if (settingsPanel.style.display === 'none') return;
-  if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) closeSettingsPanel();
+  if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) { closeSettingsPanel(); return; }
+  // Close an open category "⋮" menu when tapping anywhere else in the panel
+  // (clicks inside the list itself never reach here — see stopPropagation below)
+  if (openCategoryKebabIdx !== null && !e.target.closest('#categoryManageList')) {
+    openCategoryKebabIdx = null;
+    renderCategoryManageList();
+  }
+});
+
+/* ---- Settings navigation: Settings -> Category -> (Category colours | Create new category) ---- */
+document.getElementById('openCategoryMenuBtn').addEventListener('click', () => showSettingsView('settingsCategoryMenuView'));
+document.getElementById('backFromCategoryMenuBtn').addEventListener('click', () => showSettingsView('settingsMainView'));
+document.getElementById('openCategoryColoursBtn').addEventListener('click', () => {
+  openCategoryKebabIdx = null;
+  deleteConfirmCategoryIdx = null;
+  renderCategoryManageList();
+  showSettingsView('settingsCategoryColoursView');
+});
+document.getElementById('backFromColoursBtn').addEventListener('click', () => showSettingsView('settingsCategoryMenuView'));
+document.getElementById('openCategoryCreateBtn').addEventListener('click', beginCreateCategory);
+document.getElementById('backFromCategoryFormBtn').addEventListener('click', () => showSettingsView('settingsCategoryMenuView'));
+document.getElementById('categoryFormCancelBtn').addEventListener('click', () => showSettingsView('settingsCategoryMenuView'));
+
+/* ---- Category management: list with a "⋮" menu per row (Edit / Delete) ---- */
+let openCategoryKebabIdx = null;   // which row's "⋮" menu is open, if any
+let deleteConfirmCategoryIdx = null; // which row is showing its inline "delete this?" confirm
+let editingCategoryIdx = null;     // null = the form is creating a new category; a number = editing that index
+
+function renderCategoryManageList() {
+  const list = document.getElementById('categoryManageList');
+  list.innerHTML = '';
+  if (categories.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'recurring-empty';
+    empty.textContent = 'No categories yet — create one to get started.';
+    list.appendChild(empty);
+    return;
+  }
+  categories.forEach((cat, idx) => {
+    const li = document.createElement('li');
+    if (deleteConfirmCategoryIdx === idx) {
+      li.className = 'category-manage-item category-delete-confirm';
+      li.innerHTML = `
+        <div class="category-delete-confirm-text">Delete "${cat.name}"? Days already saved keep their old label and colour, but "${cat.name}" won't be offered as a choice anymore.</div>
+        <div class="settings-actions">
+          <button class="secondary category-delete-cancel" data-idx="${idx}">Cancel</button>
+          <button class="stamp category-delete-confirm-btn" data-idx="${idx}">Delete</button>
+        </div>
+      `;
+      list.appendChild(li);
+      return;
+    }
+    const isMenuOpen = openCategoryKebabIdx === idx;
+    li.className = 'category-manage-item';
+    li.innerHTML = `
+      <span class="rec-swatch" style="background:${cat.color}"></span>
+      <span class="category-manage-name">${cat.name}</span>
+      <button type="button" class="icon-btn category-kebab-btn" data-idx="${idx}" aria-expanded="${isMenuOpen}">&#8942;</button>
+    `;
+    list.appendChild(li);
+    if (isMenuOpen) {
+      // Rendered as a normal in-flow row right under the category it belongs
+      // to (not an absolutely positioned popup), so it can't get clipped by
+      // the list's own scrollbar regardless of panel size.
+      const actionsLi = document.createElement('li');
+      actionsLi.className = 'category-inline-actions';
+      actionsLi.innerHTML = `
+        <button type="button" class="secondary category-edit-btn" data-idx="${idx}">Edit</button>
+        <button type="button" class="category-delete-btn" data-idx="${idx}">Delete</button>
+      `;
+      list.appendChild(actionsLi);
+    }
+  });
+}
+
+document.getElementById('categoryManageList').addEventListener('click', (e) => {
+  e.stopPropagation(); // this handler rebuilds the list's HTML, which detaches the clicked element — without this, the outside-click-closes-panel listener sees a "detached" target and closes the whole panel
+  const kebabBtn = e.target.closest('.category-kebab-btn');
+  if (kebabBtn) {
+    const idx = Number(kebabBtn.dataset.idx);
+    openCategoryKebabIdx = (openCategoryKebabIdx === idx) ? null : idx;
+    renderCategoryManageList();
+    return;
+  }
+  if (e.target.classList.contains('category-edit-btn')) {
+    openCategoryKebabIdx = null;
+    beginEditCategory(Number(e.target.dataset.idx));
+    return;
+  }
+  if (e.target.classList.contains('category-delete-btn')) {
+    openCategoryKebabIdx = null;
+    deleteConfirmCategoryIdx = Number(e.target.dataset.idx);
+    renderCategoryManageList();
+    return;
+  }
+  if (e.target.classList.contains('category-delete-cancel')) {
+    deleteConfirmCategoryIdx = null;
+    renderCategoryManageList();
+    return;
+  }
+  if (e.target.classList.contains('category-delete-confirm-btn')) {
+    deleteCategory(Number(e.target.dataset.idx));
+  }
+});
+
+async function deleteCategory(idx) {
+  const removed = categories[idx];
+  if (!removed) return;
+  categories.splice(idx, 1);
+  deleteConfirmCategoryIdx = null;
+  await saveCategories();
+  renderCategorySelectOptions();
+  renderEvents();
+  renderRecurringList();
+  renderCategoryManageList();
+  statusMsg.textContent = `Deleted "${removed.name}".`;
+}
+
+/* ---- Create / edit category form (shared) ---- */
+const categoryFormName = document.getElementById('categoryFormName');
+const categoryFormColorInput = document.getElementById('categoryFormColorInput');
+const categoryFormSwatch = document.getElementById('categoryFormSwatch');
+const categoryFormError = document.getElementById('categoryFormError');
+const categoryFormTitle = document.getElementById('categoryFormTitle');
+const categoryFormSaveBtn = document.getElementById('categoryFormSaveBtn');
+
+categoryFormColorInput.addEventListener('input', (e) => {
+  categoryFormSwatch.style.background = e.target.value;
+});
+
+function beginCreateCategory() {
+  editingCategoryIdx = null;
+  categoryFormTitle.textContent = 'Create new category';
+  categoryFormName.value = '';
+  categoryFormColorInput.value = '#3B6EA5';
+  categoryFormSwatch.style.background = '#3B6EA5';
+  categoryFormSaveBtn.textContent = 'Add category';
+  categoryFormError.textContent = '';
+  showSettingsView('settingsCategoryFormView');
+}
+
+function beginEditCategory(idx) {
+  const cat = categories[idx];
+  if (!cat) return;
+  editingCategoryIdx = idx;
+  categoryFormTitle.textContent = 'Edit category';
+  categoryFormName.value = cat.name;
+  categoryFormColorInput.value = cat.color;
+  categoryFormSwatch.style.background = cat.color;
+  categoryFormSaveBtn.textContent = 'Save changes';
+  categoryFormError.textContent = '';
+  showSettingsView('settingsCategoryFormView');
+}
+
+categoryFormSaveBtn.addEventListener('click', async () => {
+  const name = categoryFormName.value.trim();
+  const color = categoryFormColorInput.value;
+  if (!name) { categoryFormError.textContent = 'Give the category a name.'; return; }
+  const clash = categories.some((c, i) => c.name.toLowerCase() === name.toLowerCase() && i !== editingCategoryIdx);
+  if (clash) { categoryFormError.textContent = 'A category with that name already exists.'; return; }
+  categoryFormError.textContent = '';
+
+  if (editingCategoryIdx !== null) {
+    categories[editingCategoryIdx] = { name, color };
+  } else {
+    categories.push({ name, color });
+  }
+  await saveCategories();
+  renderCategorySelectOptions();
+  renderEvents();
+  renderRecurringList();
+  statusMsg.textContent = editingCategoryIdx !== null ? `Updated "${name}".` : `Added "${name}" as a new category.`;
+  renderCategoryManageList();
+  showSettingsView('settingsCategoryColoursView');
 });
 
 /* ---------- Delete past entries (date range) ---------- */
@@ -2076,10 +2395,6 @@ BOUNDARIES.forEach(m => {
   const o2 = document.createElement('option'); o2.value = m; o2.textContent = boundaryLabel(m);
   recurEndSel.appendChild(o2);
 });
-CATEGORIES.forEach(c => {
-  const o = document.createElement('option'); o.value = c.name; o.textContent = c.name;
-  recurCategorySel.appendChild(o);
-});
 recurStartSel.value = 19 * 60; // 7:00 PM
 recurEndSel.value = 21 * 60;   // 9:00 PM
 
@@ -2101,7 +2416,7 @@ function renderRecurringList() {
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push({ rule, idx });
   });
-  const orderedCats = CATEGORIES.map(c => c.name).filter(name => grouped[name]);
+  const orderedCats = categories.map(c => c.name).filter(name => grouped[name]);
   Object.keys(grouped).forEach(name => { if (!orderedCats.includes(name)) orderedCats.push(name); });
 
   orderedCats.forEach(catName => {
@@ -2467,8 +2782,8 @@ async function init() {
   updateDateDisplay();
   syncMiniCalToSelected();
   renderChecklist();
-  await loadCategoryColors();
-  renderColourGrid();
+  await loadCategories();
+  renderCategorySelectOptions();
   await loadRecurringRules();
   await refreshSavedDays();
   await loadDay();
@@ -2491,11 +2806,14 @@ function attachLiveListeners() {
     renderRecurringList();
   }));
 
-  // Category colours — live across devices
-  liveUnsubscribers.push(dataCollection().doc('category-colors').onSnapshot((snap) => {
+  // Categories (names + colours) — live across devices
+  liveUnsubscribers.push(dataCollection().doc('categories').onSnapshot((snap) => {
     if (snap.metadata.hasPendingWrites) return;
-    categoryColors = (snap.exists && snap.data().value) ? JSON.parse(snap.data().value) : {};
+    categories = (snap.exists && snap.data().value) ? JSON.parse(snap.data().value) : [];
+    renderCategorySelectOptions();
     renderEvents();
+    renderRecurringList();
+    if (settingsPanel.style.display !== 'none') renderCategoryManageList();
   }));
 
   // Which days have a saved plan — keeps the mini-calendar dots live
