@@ -249,6 +249,14 @@ select:focus, input:focus, textarea:focus{
   background:#fff;
 }
 
+.mini-cal-day.is-locked{
+  --lock-color:168,64,47;
+  background:repeating-linear-gradient(135deg, rgba(var(--lock-color),0.18), rgba(var(--lock-color),0.18) 4px, transparent 4px, transparent 8px);
+}
+.mini-cal-day.is-locked.selected{
+  background:rgb(var(--lock-color));
+}
+
 .mini-cal-footer{
   display:flex;
   align-items:center;
@@ -349,7 +357,7 @@ select:focus, input:focus, textarea:focus{
   cursor:grab;
   box-shadow:0 1px 2px rgba(0,0,0,0.18);
   user-select:none;
-  touch-action:pan-y;
+  touch-action:none;
   transition:transform 0.12s ease, box-shadow 0.12s ease;
 }
 
@@ -955,6 +963,31 @@ button:hover{ opacity:0.85; }
   border-bottom:1px dotted var(--line);
 }
 
+.check-drag-handle{
+  flex-shrink:0;
+  width:26px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+  color:var(--muted);
+  cursor:grab;
+  touch-action:none;
+  user-select:none;
+  border-radius:4px;
+}
+.check-drag-handle:hover{ background:var(--accent-soft); color:var(--accent); }
+.check-drag-handle:active{ cursor:grabbing; }
+.check-drag-handle-spacer{ flex-shrink:0; width:26px; }
+
+.check-item.dragging{
+  opacity:0.55;
+  background:var(--accent-soft);
+  box-shadow:0 3px 10px rgba(0,0,0,0.15);
+  border-radius:3px;
+}
+
 .check-item input[type="checkbox"]{
   width:16px;
   height:16px;
@@ -1075,6 +1108,259 @@ button:hover{ opacity:0.85; }
 }
 
 /* ============================================================
+   WEEK VIEW
+   ============================================================ */
+.calendar-hint-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.calendar-hint-row .calendar-hint{ margin:0; }
+.calendar-hint-actions{ display:flex; gap:8px; flex-shrink:0; }
+.week-view-btn{ white-space:nowrap; }
+#expandTimetableBtn{ white-space:nowrap; }
+
+.calendar-wrap.expanded{ max-height:none; }
+
+.day-lock-banner{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:#fff;
+  border-radius:2px;
+  padding:8px 12px;
+  margin:0 0 14px;
+}
+
+.week-view-header{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:6px;
+}
+
+.week-nav{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+}
+
+.week-range-picker-wrap{ position:relative; }
+
+.week-range-label-btn{
+  background:none;
+  border:1px solid transparent;
+  color:var(--ink);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  font-weight:600;
+  text-transform:none;
+  letter-spacing:normal;
+  padding:4px 8px;
+  border-radius:3px;
+  cursor:pointer;
+}
+.week-range-label-btn:hover{ border-color:var(--accent); background:var(--accent-soft); }
+
+.week-range-picker{
+  position:absolute;
+  top:calc(100% + 6px);
+  left:50%;
+  transform:translateX(-50%);
+  width:260px;
+  background:var(--paper-2);
+  border:1px solid var(--ink);
+  border-radius:4px;
+  padding:10px;
+  box-shadow:0 6px 16px rgba(0,0,0,0.18);
+  z-index:40;
+  text-align:left;
+}
+.week-range-picker .mini-cal-hint{ margin:8px 0 0; }
+
+.mini-cal-day.in-week{
+  background:var(--accent-soft);
+}
+.mini-cal-day.in-week.selected{
+  background:var(--accent);
+  color:#fff;
+}
+
+#weekBanners{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:600px;
+  padding:8px 0 4px;
+}
+
+.week-banner-row{
+  display:grid;
+  grid-template-columns:56px repeat(7, minmax(72px, 1fr));
+  gap:0;
+}
+
+.week-banner-bar{
+  grid-row:1;
+  border-radius:3px;
+  padding:4px 8px;
+  font-size:11.5px;
+  font-family:'IBM Plex Mono',monospace;
+  color:#fff;
+  cursor:pointer;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.week-banner-bar:hover{ opacity:0.85; }
+
+.week-banner-actions{
+  grid-column:1 / -1;
+  display:flex;
+  gap:8px;
+  padding:6px 4px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.week-banner-actions .banner-label{ flex:1; font-size:12.5px; min-width:160px; }
+
+.week-grid-scroll{
+  overflow-x:auto;
+  overflow-y:auto;
+  max-height:600px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  border-radius:2px;
+  margin-bottom:20px;
+}
+
+.week-grid{
+  display:grid;
+  grid-template-columns:56px repeat(7, minmax(72px, 1fr));
+  min-width:600px;
+}
+
+.week-axis-corner, .week-day-header{
+  position:sticky;
+  top:0;
+  background:var(--paper);
+  z-index:5;
+  border-bottom:1px solid var(--ink);
+}
+
+.week-day-header{
+  border:none;
+  border-bottom:1px solid var(--ink);
+  border-left:1px solid var(--line);
+  padding:6px 4px;
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink);
+  text-align:center;
+  cursor:pointer;
+}
+.week-day-header:hover{ background:var(--accent-soft); }
+.week-day-header .week-day-name{
+  display:block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9.5px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.week-day-header.is-today{ background:var(--accent); color:#fff; }
+.week-day-header.is-today .week-day-name{ color:#e4efec; }
+.week-day-header.is-locked::after{ content:" \1F512"; font-size:10px; }
+
+.week-axis{ position:relative; }
+.week-axis-label{
+  position:absolute;
+  right:6px;
+  transform:translateY(-50%);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  color:var(--muted);
+}
+
+.week-day-col{
+  position:relative;
+  border-left:1px solid var(--line);
+  cursor:pointer;
+  /* Hourly reference gridlines, drawn as a background pattern rather than
+     extra DOM elements — keeps the full 6 AM–12 AM range visually anchored
+     all the way down, even past the last text label. */
+  background-image:repeating-linear-gradient(
+    to bottom,
+    var(--line) 0, var(--line) 1px,
+    transparent 1px, transparent 28px
+  );
+}
+.week-day-col.is-locked{
+  background-image:
+    repeating-linear-gradient(135deg, rgba(168,64,47,0.08), rgba(168,64,47,0.08) 6px, transparent 6px, transparent 12px),
+    repeating-linear-gradient(to bottom, var(--line) 0, var(--line) 1px, transparent 1px, transparent 28px);
+}
+.week-day-col:hover{ background-color:var(--accent-soft); }
+.week-day-col.is-locked:hover{ background-color:rgba(168,64,47,0.1); }
+
+.week-event-block{
+  position:absolute;
+  left:2px;
+  right:2px;
+  border-radius:3px;
+  overflow:hidden;
+  font-size:9.5px;
+  color:#fff;
+  font-weight:600;
+  padding:1px 3px;
+  line-height:1.2;
+  pointer-events:none;
+}
+
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(35,36,31,0.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:100;
+}
+
+.block-range-form{
+  background:var(--paper-2);
+  border:1px solid var(--ink);
+  border-radius:6px;
+  padding:20px;
+  width:100%;
+  max-width:420px;
+  max-height:85vh;
+  overflow-y:auto;
+  box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+.block-range-form h3{
+  font-family:'Fraunces',serif;
+  font-size:16px;
+  font-weight:600;
+  margin:0 0 12px;
+}
+.block-range-lock-label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  margin:4px 0 8px;
+  cursor:pointer;
+}
+
+/* ============================================================
    MOBILE LAYOUT — phones and narrow tablets
    ============================================================ */
 @media (max-width: 640px){
@@ -1119,6 +1405,7 @@ button:hover{ opacity:0.85; }
   /* Bigger tap targets on checklist rows */
   .check-item{ padding:10px 4px; }
   .check-item input[type="checkbox"]{ width:20px; height:20px; }
+  .check-drag-handle, .check-drag-handle-spacer{ width:32px; height:32px; font-size:18px; }
   .check-actions{ flex-basis:100%; justify-content:flex-end; margin-top:4px; }
   .check-actions button, .recurring-item button{ padding:7px 11px; font-size:12px; }
 
@@ -1163,6 +1450,20 @@ button:hover{ opacity:0.85; }
   .footer-bar{ flex-direction:column; align-items:stretch; }
   .footer-bar > div{ display:flex; gap:8px; }
   .footer-bar button{ flex:1; }
+
+  .calendar-hint-row{ flex-direction:column; align-items:stretch; }
+  .calendar-hint-actions{ width:100%; }
+  #expandTimetableBtn, .week-view-btn{ flex:1; width:auto; }
+  .week-view-header{ flex-direction:column; align-items:stretch; }
+  .week-nav{ justify-content:center; }
+  .week-range-picker{ width:min(260px, calc(100vw - 48px)); }
+
+  /* Let the page itself scroll vertically instead of trapping scroll inside
+     a short nested box — horizontal scroll (for the 7 narrow columns) stays. */
+  .week-grid-scroll{ max-height:none; overflow-y:visible; }
+  .week-axis-corner, .week-day-header{ position:static; }
+
+  .block-range-form{ padding:16px; max-width:none; }
 }
 
 </style>
@@ -1184,7 +1485,7 @@ button:hover{ opacity:0.85; }
   <div class="tab" id="dateTab">--/--/----</div>
   <header>
     <div>
-      <h1>Daily Timetable</h1>
+      <h1 id="mainTitle">Daily Timetable</h1>
       <div class="subtitle">6:00 AM &rarr; 12:00 AM</div>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
@@ -1264,6 +1565,7 @@ button:hover{ opacity:0.85; }
     </div>
   </header>
 
+  <div id="dayViewSection">
   <div class="top-grid">
     <div class="top-left">
       <div class="controls">
@@ -1314,7 +1616,15 @@ button:hover{ opacity:0.85; }
     </div>
   </div>
 
-  <p class="calendar-hint">Click any empty space to add an activity block. Drag a block to move it, drag its bottom edge to resize, click it to edit or add a note. Everything autosaves as you go.</p>
+  <p class="day-lock-banner" id="dayLockBanner" style="display:none;"></p>
+
+  <div class="calendar-hint-row">
+    <p class="calendar-hint">Click any empty space to add an activity block. Drag a block to move it, drag its bottom edge to resize, click it to edit or add a note. Everything autosaves as you go.</p>
+    <div class="calendar-hint-actions">
+      <button type="button" class="secondary week-view-btn" id="weekViewBtn">Week view</button>
+      <button type="button" class="secondary" id="expandTimetableBtn">Expand</button>
+    </div>
+  </div>
 
   <div class="calendar-wrap" id="calendarWrap">
     <div class="calendar-axis" id="calendarAxis"></div>
@@ -1403,6 +1713,73 @@ button:hover{ opacity:0.85; }
       <button class="stamp" id="saveBtn">Save now</button>
     </div>
   </div>
+  </div>
+
+  <!-- ================= WEEK VIEW ================= -->
+  <div id="weekViewSection" style="display:none;">
+    <div class="week-view-header">
+      <button type="button" class="settings-back" id="backToDayBtn">&#8249; Day view</button>
+      <div class="week-nav">
+        <button type="button" id="weekPrevBtn" class="mini-cal-nav" aria-label="Previous week">&#8249;</button>
+        <div class="week-range-picker-wrap">
+          <button type="button" id="weekRangeLabel" class="week-range-label-btn" aria-haspopup="true" aria-expanded="false">-- — --</button>
+          <div class="week-range-picker" id="weekRangePicker" style="display:none;">
+            <div class="mini-cal-header">
+              <button type="button" id="weekPickerPrevMonth" class="mini-cal-nav" aria-label="Previous month">&#8249;</button>
+              <span id="weekPickerLabel">-- ----</span>
+              <button type="button" id="weekPickerNextMonth" class="mini-cal-nav" aria-label="Next month">&#8250;</button>
+            </div>
+            <div class="mini-cal-grid" id="weekPickerGrid"></div>
+            <p class="mini-cal-hint">Pick any date — its whole Mon–Sun week will open.</p>
+          </div>
+        </div>
+        <button type="button" id="weekNextBtn" class="mini-cal-nav" aria-label="Next week">&#8250;</button>
+      </div>
+      <button type="button" class="stamp" id="blockOutBtn">Block out dates</button>
+    </div>
+
+    <p class="calendar-hint">Click a day to open it in the daily planner. Blocked-out ranges show as a banner above the week — click one to edit or remove it.</p>
+
+    <div class="week-grid-scroll">
+      <div id="weekBanners"></div>
+      <div class="week-grid" id="weekGrid"></div>
+    </div>
+
+  <div class="modal-backdrop" id="blockRangeBackdrop" style="display:none;">
+    <div class="block-range-form" id="blockRangeForm">
+      <h3 id="blockRangeFormTitle">Block out dates</h3>
+      <div class="drawer-row">
+        <div class="field">
+          <label for="blockRangeFrom">From</label>
+          <input type="date" id="blockRangeFrom">
+        </div>
+        <div class="field">
+          <label for="blockRangeTo">To</label>
+          <input type="date" id="blockRangeTo">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label for="blockRangeLabel">Label</label>
+        <input type="text" id="blockRangeLabel" placeholder="e.g. Overseas trip">
+      </div>
+      <div class="field" style="margin-bottom:6px;">
+        <label>Colour</label>
+        <span class="colour-swatch-btn" id="blockRangeColorSwatch" style="background:#A8402F;">
+          <input type="color" id="blockRangeColorInput" value="#A8402F">
+        </span>
+      </div>
+      <label class="block-range-lock-label">
+        <input type="checkbox" id="blockRangeLock">
+        Lock these days (prevents adding/editing timetable events for this range)
+      </label>
+      <p class="recurring-error" id="blockRangeError"></p>
+      <div class="settings-actions">
+        <button class="secondary" id="blockRangeCancelBtn">Cancel</button>
+        <button class="stamp" id="blockRangeSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -1620,6 +1997,37 @@ function renderCategorySelectOptions() {
   });
 }
 
+/* ---------- Blocked date ranges (e.g. "Overseas trip") ---------- */
+// [{ id, start: 'YYYY-MM-DD', end: 'YYYY-MM-DD', label, color, locked }]
+// 'locked' ranges block timetable editing for the days they cover; unlocked
+// ranges are just a visual label — either way, days you've already saved
+// are untouched.
+let blockedRanges = [];
+
+async function loadBlockedRanges() {
+  try {
+    const result = await dbGet('blocked-ranges');
+    blockedRanges = (result && result.value) ? JSON.parse(result.value) : [];
+  } catch (err) { blockedRanges = []; }
+}
+async function saveBlockedRanges() {
+  try { await dbSet('blocked-ranges', JSON.stringify(blockedRanges)); }
+  catch (err) { statusMsg.textContent = 'Could not save blocked dates — please try again.'; }
+}
+// dateStr and range.start/end are all 'YYYY-MM-DD', so plain string
+// comparison sorts chronologically correctly — no Date parsing needed.
+function getLockedRangeForDate(dateStr) {
+  return blockedRanges.find(r => r.locked && dateStr >= r.start && dateStr <= r.end) || null;
+}
+function getAnyRangeForDate(dateStr) {
+  return blockedRanges.find(r => dateStr >= r.start && dateStr <= r.end) || null;
+}
+function hexToRgbTriplet(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  if (!m) return '168,64,47';
+  return `${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)}`;
+}
+
 /* ---------- DOM refs ---------- */
 const calendarWrap = document.getElementById('calendarWrap');
 const calendarAxis = document.getElementById('calendarAxis');
@@ -1721,6 +2129,7 @@ function closeDrawer() {
 document.getElementById('drawerCancel').addEventListener('click', closeDrawer);
 
 document.getElementById('drawerSave').addEventListener('click', () => {
+  if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; closeDrawer(); return; }
   const start = Number(drawerStart.value);
   const end = Number(drawerEnd.value);
   if (end <= start) { statusMsg.textContent = 'End time must be after start time.'; return; }
@@ -1739,6 +2148,7 @@ document.getElementById('drawerSave').addEventListener('click', () => {
 });
 
 document.getElementById('drawerDelete').addEventListener('click', () => {
+  if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; closeDrawer(); return; }
   if (editingId) events = events.filter(e => e.id !== editingId);
   renderEvents();
   closeDrawer();
@@ -1758,21 +2168,25 @@ let suppressGridClick = false;
 
 calendarGrid.addEventListener('click', (e) => {
   if (suppressGridClick) { suppressGridClick = false; return; }
+  if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; return; }
   if (e.target !== calendarGrid && e.target !== linesLayer && e.target !== eventsLayer) return;
   const start = minutesFromClientY(e.clientY);
   openDrawer({ start, end: Math.min(DAY_END, start + 60), category: categories[0] ? categories[0].name : 'Other', activity: '', note: '' });
 });
 
 /* ---------- Dragging & resizing existing blocks ---------- */
-// On touch, a quick swipe should scroll the page like normal; only a
-// brief hold-still on a block should arm dragging/resizing. Mouse users
-// aren't affected by this at all — there's no scroll gesture to confuse
-// a mouse-drag with, so mouse dragging still starts instantly.
+// A block has touch-action:none (see CSS), so the browser never scrolls it
+// natively — that's what let a real hold-then-drag lose the race against
+// the browser's own scroll gesture before. Instead: if a touch starts on a
+// block and moves before the hold completes, WE scroll the container
+// ourselves in JS, giving us full, reliable control either way. Mouse
+// users are unaffected — dragging there still starts instantly.
 const TOUCH_HOLD_MS = 400;        // how long a touch must hold still before drag/resize arms — raise (e.g. 600–800) if you still get accidental drags, lower if it feels sluggish
 const TOUCH_MOVE_CANCEL_PX = 10;  // finger movement past this, before the hold completes, is treated as a scroll swipe and cancels the hold
 
 let dragState = null;   // { id, mode: 'move'|'resize', startY, origStart, origEnd, moved }
 let pendingTouch = null; // { id, mode, target, blockEl, pointerId, startX, startY, origStart, origEnd, timer }
+let touchScrollState = null; // { pointerId, lastY } — active once a pending touch turns into a manual scroll
 
 function clearPendingTouch() {
   if (pendingTouch) {
@@ -1787,6 +2201,7 @@ function endDragVisuals(id) {
 }
 
 eventsLayer.addEventListener('pointerdown', (e) => {
+  if (currentDayLocked) return;
   const id = e.target.dataset.id;
   if (!id) return;
   const ev = events.find(x => x.id === id);
@@ -1797,13 +2212,14 @@ eventsLayer.addEventListener('pointerdown', (e) => {
 
   if (e.pointerType === 'mouse') {
     dragState = { id, mode, startY: e.clientY, origStart: ev.start, origEnd: ev.end, moved: false };
-    e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+    try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (err) {}
     return;
   }
 
   // Touch or pen: arm the drag only after a brief hold-still, so a normal
   // scroll swipe starting on a block isn't mistaken for a drag.
   clearPendingTouch();
+  touchScrollState = null;
   const blockEl = e.target.closest('.event-block');
   const target = e.target;
   const pointerId = e.pointerId;
@@ -1814,7 +2230,7 @@ eventsLayer.addEventListener('pointerdown', (e) => {
     timer: setTimeout(() => {
       if (!pendingTouch) return;
       dragState = { id: pendingTouch.id, mode: pendingTouch.mode, startY: pendingTouch.startY, origStart: pendingTouch.origStart, origEnd: pendingTouch.origEnd, moved: false };
-      target.setPointerCapture && target.setPointerCapture(pointerId);
+      try { target.setPointerCapture && target.setPointerCapture(pointerId); } catch (err) {}
       if (blockEl) blockEl.classList.add('touch-armed');
       if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) {} } // small buzz confirming the hold registered, where supported
       pendingTouch = null;
@@ -1824,11 +2240,23 @@ eventsLayer.addEventListener('pointerdown', (e) => {
 
 document.addEventListener('pointermove', (e) => {
   if (pendingTouch && e.pointerId === pendingTouch.pointerId) {
+    e.preventDefault(); // touch-action:none means the browser won't scroll on its own — we decide what happens
     const dx = e.clientX - pendingTouch.startX;
     const dy = e.clientY - pendingTouch.startY;
     if (Math.sqrt(dx * dx + dy * dy) > TOUCH_MOVE_CANCEL_PX) {
-      clearPendingTouch(); // moved before the hold completed — let the browser scroll instead
+      // Confirmed scroll intent, not a hold — take over scrolling manually
+      // since the browser was never going to do it for us here.
+      const pointerId = pendingTouch.pointerId;
+      clearPendingTouch();
+      touchScrollState = { pointerId, lastY: e.clientY };
     }
+    return;
+  }
+  if (touchScrollState && e.pointerId === touchScrollState.pointerId) {
+    e.preventDefault();
+    calendarWrap.scrollTop -= (e.clientY - touchScrollState.lastY);
+    touchScrollState.lastY = e.clientY;
+    suppressGridClick = true; // this gesture was a scroll, not a tap — don't open the drawer on release
     return;
   }
   if (!dragState) return;
@@ -1855,6 +2283,7 @@ document.addEventListener('pointermove', (e) => {
 
 function finishDrag() {
   clearPendingTouch();
+  touchScrollState = null;
   if (dragState) {
     if (dragState.moved) {
       suppressGridClick = true;
@@ -1868,6 +2297,7 @@ document.addEventListener('pointerup', finishDrag);
 document.addEventListener('pointercancel', finishDrag);
 
 eventsLayer.addEventListener('click', (e) => {
+  if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; return; }
   if (e.target.classList.contains('ev-delete')) {
     const id = e.target.dataset.id;
     events = events.filter(x => x.id !== id);
@@ -1919,9 +2349,11 @@ function renderChecklist() {
   checkList.innerHTML = '';
   checklist.forEach((item, idx) => {
     const li = document.createElement('li');
+    li.dataset.idx = idx;
     if (idx === editingCheckIdx) {
       li.className = 'check-item editing';
       li.innerHTML = `
+        <span class="check-drag-handle-spacer"></span>
         <input type="checkbox" ${item.done ? 'checked' : ''} disabled>
         <input type="text" class="check-edit-input" id="check-edit-${idx}" value="${escapeAttr(item.text)}">
         <div class="check-actions">
@@ -1932,6 +2364,7 @@ function renderChecklist() {
     } else if (item.status === 'rescheduled') {
       li.className = 'check-item rescheduled';
       li.innerHTML = `
+        <span class="check-drag-handle" title="Drag to reorder">&#10495;</span>
         <span class="resched-flag">&#8594; ${item.rescheduledTo}</span>
         <span class="check-text">${item.text}</span>
         <div class="check-actions">
@@ -1942,6 +2375,7 @@ function renderChecklist() {
     } else {
       li.className = 'check-item' + (item.done ? ' done' : '');
       li.innerHTML = `
+        <span class="check-drag-handle" title="Drag to reorder">&#10495;</span>
         <input type="checkbox" ${item.done ? 'checked' : ''} data-idx="${idx}">
         <span class="check-text">${item.text}</span>
         <div class="check-actions">
@@ -2047,6 +2481,57 @@ checkList.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); saveChecklistEdit(idx); }
   else if (e.key === 'Escape') { e.preventDefault(); editingCheckIdx = null; renderChecklist(); }
 });
+
+/* ---- Drag-to-reorder via the dedicated handle ---- */
+// A dedicated handle (rather than the whole row) means no scroll/drag
+// ambiguity on touch — only a touch that starts on the handle itself can
+// ever begin a reorder, so it can start instantly with no hold delay, and
+// a swipe anywhere else on the row or page still scrolls normally.
+let checklistDragIdx = null;
+let checklistDragPointerId = null;
+
+checkList.addEventListener('pointerdown', (e) => {
+  const handle = e.target.closest('.check-drag-handle');
+  if (!handle) return;
+  const li = handle.closest('.check-item');
+  if (!li) return;
+  checklistDragIdx = Number(li.dataset.idx);
+  checklistDragPointerId = e.pointerId;
+  li.classList.add('dragging');
+  try { handle.setPointerCapture && handle.setPointerCapture(e.pointerId); } catch (err) {}
+  e.preventDefault();
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (checklistDragIdx === null || e.pointerId !== checklistDragPointerId) return;
+  e.preventDefault();
+  const others = Array.from(checkList.querySelectorAll('.check-item')).filter((row, i) => i !== checklistDragIdx);
+  let targetIdx = others.length; // default: pointer is below everything — goes to the end
+  for (let i = 0; i < others.length; i++) {
+    const rect = others[i].getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) { targetIdx = i; break; }
+  }
+  if (targetIdx !== checklistDragIdx) {
+    const [moved] = checklist.splice(checklistDragIdx, 1);
+    checklist.splice(targetIdx, 0, moved);
+    checklistDragIdx = targetIdx;
+    renderChecklist();
+    const draggedLi = checkList.querySelector(`.check-item[data-idx="${targetIdx}"]`);
+    if (draggedLi) draggedLi.classList.add('dragging');
+  }
+});
+
+function finishChecklistDrag(e) {
+  if (checklistDragIdx === null || e.pointerId !== checklistDragPointerId) return;
+  const li = checkList.querySelector('.check-item.dragging');
+  if (li) li.classList.remove('dragging');
+  checklistDragIdx = null;
+  checklistDragPointerId = null;
+  scheduleAutoSave();
+}
+document.addEventListener('pointerup', finishChecklistDrag);
+document.addEventListener('pointercancel', finishChecklistDrag);
+
 document.getElementById('addCheckBtn').addEventListener('click', () => {
   const text = checkInput.value.trim();
   if (!text) return;
@@ -2581,12 +3066,31 @@ function clearForm() {
 }
 
 let currentDayIsSaved = false;
+let currentDayLocked = false;
+let currentDayLockLabel = '';
+
+function updateDayLockBanner() {
+  const banner = document.getElementById('dayLockBanner');
+  const range = getAnyRangeForDate(currentDateStr());
+  if (range) {
+    banner.style.background = range.color || '#A8402F';
+    banner.textContent = (range.locked ? '\uD83D\uDD12 ' : '') + range.label
+      + (range.locked ? ' — timetable editing is disabled for this day.' : '');
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
 
 async function loadDay() {
   updateDateDisplay();
   statusMsg.textContent = 'Loading...';
   const key = currentKey();
   const weekday = weekdayDisplay.textContent;
+  const lockRange = getLockedRangeForDate(currentDateStr());
+  currentDayLocked = !!lockRange;
+  currentDayLockLabel = lockRange ? lockRange.label : '';
+  updateDayLockBanner();
   try {
     const result = await dbGet(key);
     if (result && result.value) {
@@ -2682,6 +3186,11 @@ function renderMiniCalendar() {
     cell.type = 'button';
     cell.className = 'mini-cal-day';
     if (savedDatesSet.has(dateStr)) cell.classList.add('has-data');
+    const range = getAnyRangeForDate(dateStr);
+    if (range && range.locked) {
+      cell.classList.add('is-locked');
+      cell.style.setProperty('--lock-color', hexToRgbTriplet(range.color));
+    }
     if (dateStr === selectedStr) cell.classList.add('selected');
     cell.dataset.date = dateStr;
     cell.textContent = String(day);
@@ -2689,6 +3198,86 @@ function renderMiniCalendar() {
   }
   syncChecklistHeight();
 }
+
+/* ---------- Week-range picker (click the week label to jump to any week) ---------- */
+const weekRangeLabelBtn = document.getElementById('weekRangeLabel');
+const weekRangePicker = document.getElementById('weekRangePicker');
+const weekPickerGrid = document.getElementById('weekPickerGrid');
+const weekPickerLabel = document.getElementById('weekPickerLabel');
+let weekPickerViewYear = null;
+let weekPickerViewMonth = null;
+
+function renderWeekPickerGrid() {
+  if (weekPickerViewYear === null) return;
+  weekPickerLabel.textContent = `${monthNames[weekPickerViewMonth]} ${weekPickerViewYear}`;
+  weekPickerGrid.innerHTML = '';
+  ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].forEach(dow => {
+    const h = document.createElement('div');
+    h.className = 'mini-cal-dow';
+    h.textContent = dow;
+    weekPickerGrid.appendChild(h);
+  });
+  const firstDayJs = new Date(weekPickerViewYear, weekPickerViewMonth, 1).getDay();
+  const leading = (firstDayJs + 6) % 7;
+  const daysInMonth = new Date(weekPickerViewYear, weekPickerViewMonth + 1, 0).getDate();
+  for (let i = 0; i < leading; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'mini-cal-blank';
+    weekPickerGrid.appendChild(blank);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${weekPickerViewYear}-${pad(weekPickerViewMonth + 1)}-${pad(day)}`;
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'mini-cal-day';
+    if (currentWeekDates.includes(dateStr)) cell.classList.add('in-week');
+    if (dateStr === dateToStr(weekViewAnchorDate)) cell.classList.add('selected');
+    cell.dataset.date = dateStr;
+    cell.textContent = String(day);
+    weekPickerGrid.appendChild(cell);
+  }
+}
+
+function openWeekRangePicker() {
+  const anchor = currentWeekDates[0] ? new Date(currentWeekDates[0] + 'T00:00:00') : weekViewAnchorDate;
+  weekPickerViewYear = anchor.getFullYear();
+  weekPickerViewMonth = anchor.getMonth();
+  renderWeekPickerGrid();
+  weekRangePicker.style.display = 'block';
+  weekRangeLabelBtn.setAttribute('aria-expanded', 'true');
+}
+function closeWeekRangePicker() {
+  weekRangePicker.style.display = 'none';
+  weekRangeLabelBtn.setAttribute('aria-expanded', 'false');
+}
+weekRangeLabelBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (weekRangePicker.style.display === 'none') openWeekRangePicker(); else closeWeekRangePicker();
+});
+document.addEventListener('click', (e) => {
+  if (weekRangePicker.style.display === 'none') return;
+  if (!weekRangePicker.contains(e.target) && e.target !== weekRangeLabelBtn) closeWeekRangePicker();
+});
+document.getElementById('weekPickerPrevMonth').addEventListener('click', (e) => {
+  e.stopPropagation();
+  weekPickerViewMonth--;
+  if (weekPickerViewMonth < 0) { weekPickerViewMonth = 11; weekPickerViewYear--; }
+  renderWeekPickerGrid();
+});
+document.getElementById('weekPickerNextMonth').addEventListener('click', (e) => {
+  e.stopPropagation();
+  weekPickerViewMonth++;
+  if (weekPickerViewMonth > 11) { weekPickerViewMonth = 0; weekPickerViewYear++; }
+  renderWeekPickerGrid();
+});
+weekPickerGrid.addEventListener('click', async (e) => {
+  e.stopPropagation();
+  const cell = e.target.closest('.mini-cal-day');
+  if (!cell) return;
+  weekViewAnchorDate = new Date(cell.dataset.date + 'T00:00:00');
+  closeWeekRangePicker();
+  await renderWeekView();
+});
 
 function syncChecklistHeight() {
   const miniCal = document.getElementById('miniCalendar');
@@ -2778,6 +3367,347 @@ document.getElementById('clearBtn').addEventListener('click', async () => {
   statusMsg.textContent = 'Cleared — this day has no saved plan now.';
 });
 
+/* ============================================================
+   WEEK VIEW
+   ============================================================ */
+function currentDateStr() {
+  const { y, m, d } = getParts();
+  return `${y}-${m}-${d}`;
+}
+
+function setView(view) {
+  const dayEl = document.getElementById('dayViewSection');
+  const weekEl = document.getElementById('weekViewSection');
+  document.getElementById('mainTitle').textContent = view === 'week' ? 'Weekly Timetable' : 'Daily Timetable';
+  if (view === 'week') {
+    dayEl.style.display = 'none';
+    weekEl.style.display = 'block';
+  } else {
+    weekEl.style.display = 'none';
+    dayEl.style.display = 'block';
+  }
+}
+
+function mondayOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday .. 6 = Saturday
+  const diff = (day === 0) ? -6 : 1 - day; // days to shift back/forward to reach Monday
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function dateToStr(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+
+let weekViewAnchorDate = new Date(); // any date within the currently-shown week
+let currentWeekDates = [];           // the 7 'YYYY-MM-DD' strings for the visible week (Mon..Sun)
+
+const WEEK_SLOT_H = 14; // half the day view's SLOT_H — a whole week fits with much less scrolling
+const WEEK_TOTAL_H = ((DAY_END - DAY_START) / SLOT_MIN) * WEEK_SLOT_H;
+const WEEK_VPAD = 10; // breathing room so the 6 AM / midnight labels aren't clipped by the sticky header — same idea as the day view's VPAD
+function weekPxFromMinutes(m) { return WEEK_VPAD + ((m - DAY_START) / SLOT_MIN) * WEEK_SLOT_H; }
+
+const expandTimetableBtn = document.getElementById('expandTimetableBtn');
+expandTimetableBtn.addEventListener('click', () => {
+  const expanded = calendarWrap.classList.toggle('expanded');
+  expandTimetableBtn.textContent = expanded ? 'Default view' : 'Expand';
+});
+
+document.getElementById('weekViewBtn').addEventListener('click', async () => {
+  await flushAutoSaveIfPending();
+  weekViewAnchorDate = new Date(calendarDate.value + 'T00:00:00');
+  setView('week');
+  await renderWeekView();
+});
+document.getElementById('backToDayBtn').addEventListener('click', () => setView('day'));
+document.getElementById('weekPrevBtn').addEventListener('click', async () => {
+  weekViewAnchorDate.setDate(weekViewAnchorDate.getDate() - 7);
+  await renderWeekView();
+});
+document.getElementById('weekNextBtn').addEventListener('click', async () => {
+  weekViewAnchorDate.setDate(weekViewAnchorDate.getDate() + 7);
+  await renderWeekView();
+});
+
+async function goToDayFromWeek(dateStr) {
+  await flushAutoSaveIfPending();
+  calendarDate.value = dateStr;
+  setView('day');
+  await loadDay();
+  attachCurrentDayListener();
+  syncMiniCalToSelected();
+}
+
+document.getElementById('weekGrid').addEventListener('click', (e) => {
+  const header = e.target.closest('.week-day-header');
+  const col = e.target.closest('.week-day-col');
+  const dateStr = (header && header.dataset.date) || (col && col.dataset.date);
+  if (dateStr) goToDayFromWeek(dateStr);
+});
+
+async function renderWeekView() {
+  // Any in-progress "block out dates" form is tied to whatever week was
+  // showing when it opened — reset it if the visible week changes under it.
+  document.getElementById('blockRangeBackdrop').style.display = 'none';
+  editingBlockRangeId = null;
+
+  const monday = mondayOfWeek(weekViewAnchorDate);
+  const dates = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); dates.push(d); }
+  currentWeekDates = dates.map(dateToStr);
+
+  const firstLabel = `${dates[0].getDate()} ${monthNames[dates[0].getMonth()].slice(0, 3)}`;
+  const lastLabel = `${dates[6].getDate()} ${monthNames[dates[6].getMonth()].slice(0, 3)} ${dates[6].getFullYear()}`;
+  document.getElementById('weekRangeLabel').textContent = `${firstLabel} \u2013 ${lastLabel}`;
+
+  renderWeekBanners();
+
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateRows = `auto ${WEEK_TOTAL_H + WEEK_VPAD * 2}px`;
+
+  const corner = document.createElement('div');
+  corner.className = 'week-axis-corner';
+  grid.appendChild(corner);
+
+  const todayStr = dateToStr(new Date());
+  currentWeekDates.forEach((dateStr, i) => {
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'week-day-header';
+    if (dateStr === todayStr) header.classList.add('is-today');
+    if (getLockedRangeForDate(dateStr)) header.classList.add('is-locked');
+    header.dataset.date = dateStr;
+    header.innerHTML = `<span class="week-day-name">${orderedWeekdays[i].slice(0, 3)}</span>${dates[i].getDate()}`;
+    grid.appendChild(header);
+  });
+
+  const axis = document.createElement('div');
+  axis.className = 'week-axis';
+  axis.style.height = (WEEK_TOTAL_H + WEEK_VPAD * 2) + 'px';
+  BOUNDARIES.filter(m => m % 60 === 0 && m < DAY_END).forEach(m => {
+    const label = document.createElement('div');
+    label.className = 'week-axis-label';
+    label.style.top = weekPxFromMinutes(m) + 'px';
+    label.textContent = boundaryLabel(m);
+    axis.appendChild(label);
+  });
+  grid.appendChild(axis);
+
+  // Fetch all 7 days in parallel — this is a read-only glance view; editing
+  // happens by tapping through into the familiar single-day planner.
+  const dayResults = await Promise.all(
+    currentWeekDates.map(dateStr => dbGet(`day:${dateStr}`).catch(() => null))
+  );
+
+  currentWeekDates.forEach((dateStr, i) => {
+    const col = document.createElement('div');
+    col.className = 'week-day-col';
+    col.style.height = (WEEK_TOTAL_H + WEEK_VPAD * 2) + 'px';
+    col.style.backgroundPosition = `0 ${WEEK_VPAD}px`; // keeps the hourly gridlines lined up with the (now padding-shifted) hour labels and blocks
+    col.dataset.date = dateStr;
+    if (getLockedRangeForDate(dateStr)) col.classList.add('is-locked');
+
+    let dayEvents = [];
+    const result = dayResults[i];
+    if (result && result.value) {
+      try { dayEvents = JSON.parse(result.value).events || []; } catch (err) { dayEvents = []; }
+    }
+    dayEvents.forEach(ev => {
+      const block = document.createElement('div');
+      block.className = 'week-event-block';
+      const top = weekPxFromMinutes(ev.start);
+      const height = Math.max(4, weekPxFromMinutes(ev.end) - top);
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      block.style.background = categoryColor(ev.category);
+      if (height >= 13) block.textContent = ev.activity || ev.category; // skip label on slivers too short to read
+      col.appendChild(block);
+    });
+    grid.appendChild(col);
+  });
+  if (weekRangePicker.style.display !== 'none') renderWeekPickerGrid();
+}
+
+/* ---- Blocked-range banners (shown above the week grid) ---- */
+let expandedBannerId = null;
+let deleteConfirmBannerId = null;
+
+function renderWeekBanners() {
+  const container = document.getElementById('weekBanners');
+  container.innerHTML = '';
+  const weekStart = currentWeekDates[0], weekEnd = currentWeekDates[6];
+  const relevant = blockedRanges.filter(r => r.start <= weekEnd && r.end >= weekStart);
+
+  relevant.forEach(range => {
+    let startIdx = currentWeekDates.findIndex(d => d >= range.start);
+    if (startIdx === -1) startIdx = 0;
+    let endIdx = 0;
+    for (let i = 6; i >= 0; i--) { if (currentWeekDates[i] <= range.end) { endIdx = i; break; } }
+
+    const row = document.createElement('div');
+    row.className = 'week-banner-row';
+    const bar = document.createElement('div');
+    bar.className = 'week-banner-bar';
+    bar.style.background = range.color || '#A8402F';
+    bar.style.gridColumn = `${startIdx + 2} / ${endIdx + 3}`;
+    bar.dataset.id = range.id;
+    bar.textContent = (range.locked ? '\uD83D\uDD12 ' : '') + range.label;
+    row.appendChild(bar);
+    container.appendChild(row);
+
+    if (expandedBannerId === range.id) {
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'week-banner-row';
+      const actions = document.createElement('div');
+      actions.className = 'week-banner-actions';
+      actions.style.gridColumn = '1 / -1';
+      if (deleteConfirmBannerId === range.id) {
+        actions.innerHTML = `
+          <span class="banner-label">Delete "${range.label}"? This only removes the label — any saved days keep their events.</span>
+          <button class="secondary banner-delete-cancel" data-id="${range.id}">Cancel</button>
+          <button class="stamp banner-delete-confirm" data-id="${range.id}">Delete</button>
+        `;
+      } else {
+        actions.innerHTML = `
+          <span class="banner-label">${range.start} \u2192 ${range.end}${range.locked ? ' \u2022 locked' : ''}</span>
+          <button class="secondary banner-edit-btn" data-id="${range.id}">Edit</button>
+          <button class="stamp banner-delete-btn" data-id="${range.id}">Delete</button>
+        `;
+      }
+      actionsRow.appendChild(actions);
+      container.appendChild(actionsRow);
+    }
+  });
+}
+
+document.getElementById('weekBanners').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const bar = e.target.closest('.week-banner-bar');
+  if (bar) {
+    expandedBannerId = (expandedBannerId === bar.dataset.id) ? null : bar.dataset.id;
+    deleteConfirmBannerId = null;
+    renderWeekBanners();
+    return;
+  }
+  if (e.target.classList.contains('banner-edit-btn')) { beginEditBlockRange(e.target.dataset.id); return; }
+  if (e.target.classList.contains('banner-delete-btn')) {
+    deleteConfirmBannerId = e.target.dataset.id;
+    renderWeekBanners();
+    return;
+  }
+  if (e.target.classList.contains('banner-delete-cancel')) {
+    deleteConfirmBannerId = null;
+    renderWeekBanners();
+    return;
+  }
+  if (e.target.classList.contains('banner-delete-confirm')) {
+    deleteBlockRange(e.target.dataset.id);
+  }
+});
+
+// Re-checks whether the day currently open in the daily planner is locked —
+// called after any create/edit/delete, since that can change mid-session
+// without the person switching dates.
+function refreshCurrentDayLockState() {
+  const lock = getLockedRangeForDate(currentDateStr());
+  currentDayLocked = !!lock;
+  currentDayLockLabel = lock ? lock.label : '';
+  updateDayLockBanner();
+}
+
+/* ---- Create / edit blocked range (shared modal form) ---- */
+let editingBlockRangeId = null;
+const DEFAULT_BLOCK_RANGE_COLOR = '#A8402F';
+const blockRangeBackdrop = document.getElementById('blockRangeBackdrop');
+const blockRangeColorInput = document.getElementById('blockRangeColorInput');
+const blockRangeColorSwatch = document.getElementById('blockRangeColorSwatch');
+
+blockRangeColorInput.addEventListener('input', (e) => {
+  blockRangeColorSwatch.style.background = e.target.value;
+});
+
+function openBlockRangeModal() { blockRangeBackdrop.style.display = 'flex'; }
+function closeBlockRangeModal() {
+  blockRangeBackdrop.style.display = 'none';
+  editingBlockRangeId = null;
+}
+// Clicking the dimmed backdrop itself (not the card) closes it, same as tapping outside a popover
+blockRangeBackdrop.addEventListener('click', (e) => {
+  if (e.target === blockRangeBackdrop) closeBlockRangeModal();
+});
+
+function beginCreateBlockRange() {
+  editingBlockRangeId = null;
+  document.getElementById('blockRangeFormTitle').textContent = 'Block out dates';
+  document.getElementById('blockRangeFrom').value = currentWeekDates[0] || '';
+  document.getElementById('blockRangeTo').value = currentWeekDates[6] || '';
+  document.getElementById('blockRangeLabel').value = '';
+  blockRangeColorInput.value = DEFAULT_BLOCK_RANGE_COLOR;
+  blockRangeColorSwatch.style.background = DEFAULT_BLOCK_RANGE_COLOR;
+  document.getElementById('blockRangeLock').checked = false;
+  document.getElementById('blockRangeError').textContent = '';
+  document.getElementById('blockRangeSaveBtn').textContent = 'Save';
+  openBlockRangeModal();
+}
+
+function beginEditBlockRange(id) {
+  const range = blockedRanges.find(r => r.id === id);
+  if (!range) return;
+  editingBlockRangeId = id;
+  expandedBannerId = null;
+  renderWeekBanners();
+  document.getElementById('blockRangeFormTitle').textContent = 'Edit blocked dates';
+  document.getElementById('blockRangeFrom').value = range.start;
+  document.getElementById('blockRangeTo').value = range.end;
+  document.getElementById('blockRangeLabel').value = range.label;
+  const color = range.color || DEFAULT_BLOCK_RANGE_COLOR;
+  blockRangeColorInput.value = color;
+  blockRangeColorSwatch.style.background = color;
+  document.getElementById('blockRangeLock').checked = !!range.locked;
+  document.getElementById('blockRangeError').textContent = '';
+  document.getElementById('blockRangeSaveBtn').textContent = 'Save changes';
+  openBlockRangeModal();
+}
+
+document.getElementById('blockOutBtn').addEventListener('click', beginCreateBlockRange);
+document.getElementById('blockRangeCancelBtn').addEventListener('click', closeBlockRangeModal);
+
+document.getElementById('blockRangeSaveBtn').addEventListener('click', async () => {
+  const from = document.getElementById('blockRangeFrom').value;
+  const to = document.getElementById('blockRangeTo').value;
+  const label = document.getElementById('blockRangeLabel').value.trim();
+  const color = blockRangeColorInput.value;
+  const locked = document.getElementById('blockRangeLock').checked;
+  const errorEl = document.getElementById('blockRangeError');
+  if (!from || !to) { errorEl.textContent = 'Pick a start and end date.'; return; }
+  if (to < from) { errorEl.textContent = 'The "To" date must be on or after "From".'; return; }
+  if (!label) { errorEl.textContent = 'Give this range a label.'; return; }
+  errorEl.textContent = '';
+
+  if (editingBlockRangeId) {
+    const idx = blockedRanges.findIndex(r => r.id === editingBlockRangeId);
+    if (idx > -1) blockedRanges[idx] = { id: editingBlockRangeId, start: from, end: to, label, color, locked };
+  } else {
+    blockedRanges.push({ id: 'range' + Date.now() + '-' + Math.floor(Math.random() * 1000), start: from, end: to, label, color, locked });
+  }
+  await saveBlockedRanges();
+  closeBlockRangeModal();
+  await renderWeekView();
+  renderMiniCalendar();
+  refreshCurrentDayLockState();
+});
+
+async function deleteBlockRange(id) {
+  const idx = blockedRanges.findIndex(r => r.id === id);
+  if (idx === -1) return;
+  blockedRanges.splice(idx, 1);
+  deleteConfirmBannerId = null;
+  expandedBannerId = null;
+  await saveBlockedRanges();
+  await renderWeekView();
+  renderMiniCalendar();
+  refreshCurrentDayLockState();
+}
+
 async function init() {
   updateDateDisplay();
   syncMiniCalToSelected();
@@ -2785,6 +3715,7 @@ async function init() {
   await loadCategories();
   renderCategorySelectOptions();
   await loadRecurringRules();
+  await loadBlockedRanges();
   await refreshSavedDays();
   await loadDay();
 }
@@ -2814,6 +3745,15 @@ function attachLiveListeners() {
     renderEvents();
     renderRecurringList();
     if (settingsPanel.style.display !== 'none') renderCategoryManageList();
+  }));
+
+  // Blocked date ranges (e.g. "Overseas trip") — live across devices
+  liveUnsubscribers.push(dataCollection().doc('blocked-ranges').onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return;
+    blockedRanges = (snap.exists && snap.data().value) ? JSON.parse(snap.data().value) : [];
+    renderMiniCalendar();
+    refreshCurrentDayLockState();
+    if (document.getElementById('weekViewSection').style.display !== 'none') renderWeekView();
   }));
 
   // Which days have a saved plan — keeps the mini-calendar dots live
