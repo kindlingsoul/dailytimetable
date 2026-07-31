@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Daily Timetable</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --paper:#F5F1E8;
+  --paper-2:#EFEADD;
+  --ink:#23241F;
+  --line:#C9C0AC;
+  --accent:#1F6F64;
+  --accent-soft:#E4EFEC;
+  --stamp:#A8402F;
+  --stamp-soft:#F3E1DC;
+  --muted:#8B8371;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  padding:32px 16px;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  display:flex;
+  justify-content:center;
+}
+
+.sheet{
+  width:100%;
+  max-width:820px;
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  position:relative;
+  padding:28px 28px 36px;
+}
+
+.tab{
+  position:absolute;
+  top:-18px;
+  right:28px;
+  background:var(--stamp);
+  color:var(--paper-2);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  letter-spacing:0.04em;
+  padding:8px 14px;
+  transform:rotate(-1.2deg);
+  box-shadow:0 2px 4px rgba(0,0,0,0.15);
+}
+
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  border-bottom:2px solid var(--ink);
+  padding-bottom:14px;
+  margin-bottom:20px;
+  flex-wrap:wrap;
+  gap:14px;
+}
+
+h1{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:30px;
+  margin:0;
+  letter-spacing:-0.01em;
+}
+
+.subtitle{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  margin-top:4px;
+}
+
+.top-grid{
+  display:flex;
+  gap:24px;
+  align-items:flex-start;
+  margin-bottom:20px;
+  flex-wrap:wrap;
+}
+
+.top-left{
+  flex:1;
+  min-width:260px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  min-height:0;
+}
+
+.top-right{
+  flex-shrink:0;
+  display:flex;
+}
+
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.field label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--muted);
+}
+
+select, input[type="text"], input[type="date"], textarea{
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  padding:7px 8px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  color:var(--ink);
+  border-radius:2px;
+}
+
+select:focus, input:focus, textarea:focus{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+}
+
+.date-display{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:15px;
+  font-weight:500;
+  background:var(--accent-soft);
+  border:1px dashed var(--accent);
+  padding:6px 12px;
+  color:var(--accent);
+  border-radius:2px;
+}
+
+.status{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--muted);
+  min-height:14px;
+}
+
+.mini-cal-field{
+  margin-bottom:0;
+}
+
+.mini-calendar{
+  max-width:260px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  border-radius:2px;
+  padding:10px;
+}
+
+.mini-cal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--ink);
+}
+
+.mini-cal-nav{
+  background:none;
+  border:1px solid var(--line);
+  color:var(--ink);
+  width:24px;
+  height:24px;
+  padding:0;
+  border-radius:3px;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+
+.mini-cal-grid{
+  display:grid;
+  grid-template-columns:repeat(7, 1fr);
+  gap:2px;
+}
+
+.mini-cal-dow{
+  text-align:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9.5px;
+  color:var(--muted);
+  text-transform:uppercase;
+  padding-bottom:3px;
+}
+
+.mini-cal-blank{ visibility:hidden; }
+
+.mini-cal-day{
+  position:relative;
+  width:100%;
+  aspect-ratio:1;
+  border:1px solid transparent;
+  background:transparent;
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  color:var(--ink);
+  cursor:pointer;
+  border-radius:3px;
+  padding:0;
+}
+
+.mini-cal-day:hover{
+  border-color:var(--accent);
+}
+
+.mini-cal-day.has-data::after{
+  content:"";
+  position:absolute;
+  bottom:3px;
+  left:50%;
+  transform:translateX(-50%);
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:var(--stamp);
+}
+
+.mini-cal-day.selected{
+  background:var(--accent);
+  color:#fff;
+  font-weight:600;
+}
+
+.mini-cal-day.selected.has-data::after{
+  background:#fff;
+}
+
+.mini-cal-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:8px;
+}
+
+.mini-cal-hint{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--muted);
+  margin:0;
+}
+
+.mini-cal-today{
+  flex-shrink:0;
+  background:none;
+  border:1px solid var(--accent);
+  color:var(--accent);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  padding:4px 8px;
+  border-radius:3px;
+  cursor:pointer;
+}
+
+.mini-cal-today:hover{ opacity:0.85; }
+
+/* --- Calendar view --- */
+.calendar-hint{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  color:var(--muted);
+  margin:0 0 8px;
+}
+
+.calendar-wrap{
+  display:flex;
+  border:1px solid var(--line);
+  background:var(--paper);
+  max-height:600px;
+  overflow-y:auto;
+  position:relative;
+  margin-bottom:26px;
+  border-radius:2px;
+}
+
+.calendar-axis{
+  width:64px;
+  flex-shrink:0;
+  border-right:1px solid var(--ink);
+  position:relative;
+}
+
+.axis-label{
+  position:absolute;
+  right:8px;
+  transform:translateY(-50%);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11.5px;
+  color:var(--muted);
+}
+
+.calendar-grid{
+  flex:1;
+  position:relative;
+  cursor:crosshair;
+}
+
+.grid-line{
+  position:absolute;
+  left:0;
+  right:0;
+  border-top:1px solid var(--line);
+}
+
+.grid-line.half-line{
+  border-top:1px dotted var(--line);
+}
+
+.grid-line.hour-line{
+  border-top:1px solid #B8AF9A;
+}
+
+.event-block{
+  position:absolute;
+  left:6px;
+  right:6px;
+  border-radius:6px;
+  color:#fff;
+  padding:6px 8px;
+  font-size:12.5px;
+  font-weight:600;
+  overflow:hidden;
+  cursor:grab;
+  box-shadow:0 1px 2px rgba(0,0,0,0.18);
+  user-select:none;
+  touch-action:none;
+}
+
+.event-block:active{
+  cursor:grabbing;
+}
+
+.event-block .ev-activity{
+  display:block;
+  line-height:1.25;
+}
+
+.event-block .ev-note-dots{
+  font-weight:400;
+  opacity:0.8;
+  margin-left:2px;
+}
+
+.event-block .ev-delete{
+  position:absolute;
+  top:2px;
+  right:4px;
+  background:rgba(0,0,0,0.25);
+  border:none;
+  color:#fff;
+  font-size:11px;
+  line-height:1;
+  padding:2px 5px;
+  border-radius:3px;
+  cursor:pointer;
+  opacity:0;
+  transition:opacity 0.15s;
+}
+
+.event-block:hover .ev-delete{
+  opacity:1;
+}
+
+.resize-handle{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:8px;
+  cursor:ns-resize;
+}
+
+/* --- Event drawer --- */
+.event-drawer{
+  display:none;
+  border:1px dashed var(--accent);
+  background:var(--accent-soft);
+  padding:14px;
+  border-radius:2px;
+  margin-bottom:26px;
+}
+
+.drawer-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+
+.event-drawer .field{
+  flex:1;
+  min-width:110px;
+}
+
+.event-drawer textarea{
+  width:100%;
+  min-height:60px;
+  resize:vertical;
+}
+
+.drawer-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:10px;
+}
+
+/* --- Recurring events --- */
+.recurring-section{ margin-bottom:26px; }
+
+.checklist-section{
+  border:1px solid var(--line);
+  background:var(--paper);
+  border-radius:2px;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  box-sizing:border-box;
+}
+
+.recurring-section h2, .checklist-section h2{
+  font-family:'Fraunces',serif;
+  font-size:18px;
+  font-weight:600;
+  margin:0 0 10px;
+  border-bottom:1px solid var(--ink);
+  padding-bottom:6px;
+}
+
+.section-toggle{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:none;
+  border:none;
+  border-bottom:1px solid var(--ink);
+  padding:0 0 8px;
+  margin:0 0 10px;
+  font-family:'Fraunces',serif;
+  font-size:18px;
+  font-weight:600;
+  color:var(--ink);
+  cursor:pointer;
+  text-transform:none;
+  letter-spacing:normal;
+}
+
+.section-toggle .chevron{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:14px;
+  color:var(--accent);
+  transition:transform 0.15s ease;
+}
+
+.section-toggle[aria-expanded="true"] .chevron{
+  transform:rotate(90deg);
+}
+
+.settings-wrap{
+  position:relative;
+}
+
+.icon-btn{
+  width:36px;
+  height:36px;
+  border-radius:4px;
+  background:var(--paper);
+  border:1px solid var(--ink);
+  color:var(--ink);
+  font-size:17px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+
+.icon-btn:hover{ opacity:0.85; }
+
+.settings-panel{
+  position:absolute;
+  top:44px;
+  right:0;
+  width:230px;
+  background:var(--paper-2);
+  border:1px solid var(--ink);
+  border-radius:4px;
+  padding:14px;
+  box-shadow:0 6px 16px rgba(0,0,0,0.18);
+  z-index:30;
+}
+
+.settings-panel h3{
+  font-family:'Fraunces',serif;
+  font-size:15px;
+  font-weight:600;
+  margin:0 0 10px;
+}
+
+.settings-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:12px;
+}
+
+.colour-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.colour-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:2px;
+  background:var(--paper);
+  font-size:13px;
+}
+
+.colour-swatch-btn{
+  width:22px;
+  height:22px;
+  border-radius:4px;
+  border:1px solid rgba(0,0,0,0.2);
+  cursor:pointer;
+  padding:0;
+  position:relative;
+}
+
+.colour-swatch-btn input[type="color"]{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+  border:none;
+  padding:0;
+}
+
+.recurring-form{
+  background:var(--accent-soft);
+  border:1px dashed var(--accent);
+  padding:12px;
+  border-radius:2px;
+  margin-bottom:12px;
+}
+
+.weekday-picks{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.weekday-picks label{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:var(--ink);
+}
+
+.recurring-time{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:flex-end;
+}
+
+.recurring-note-row{
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+  margin-top:10px;
+}
+
+.recurring-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.recurring-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:2px;
+  background:var(--paper);
+}
+
+.rec-swatch{
+  width:12px;
+  height:12px;
+  border-radius:3px;
+  flex-shrink:0;
+}
+
+.recurring-item .rec-info{
+  flex:1;
+  font-size:13px;
+}
+
+.recurring-item .rec-days{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  color:var(--accent);
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  display:block;
+  margin-top:2px;
+}
+
+.recurring-item button{
+  background:transparent;
+  color:var(--stamp);
+  border:1px solid var(--stamp);
+  font-size:11px;
+  padding:4px 8px;
+}
+
+/* --- Checklist --- */
+.check-add{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+  flex-shrink:0;
+}
+
+.check-add input{ flex:1; }
+
+button{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  background:var(--ink);
+  color:var(--paper-2);
+  border:none;
+  padding:8px 14px;
+  cursor:pointer;
+  border-radius:2px;
+}
+
+button.secondary{
+  background:transparent;
+  color:var(--ink);
+  border:1px solid var(--ink);
+}
+
+button.stamp{ background:var(--stamp); }
+button:hover{ opacity:0.85; }
+
+.check-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+}
+
+.check-item{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:6px 4px;
+  border-bottom:1px dotted var(--line);
+}
+
+.check-item input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  accent-color:var(--accent);
+}
+
+.check-item .check-text{ flex:1; font-size:14px; }
+
+.check-item.done .check-text{
+  text-decoration:line-through;
+  color:var(--muted);
+}
+
+.check-item .check-actions{
+  display:flex;
+  gap:6px;
+}
+
+.check-item button{
+  background:transparent;
+  color:var(--stamp);
+  border:none;
+  font-size:11px;
+  padding:2px 6px;
+}
+
+.check-item .resched-btn{
+  color:var(--accent);
+}
+
+.resched-inline{
+  flex-basis:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+}
+
+.check-item.rescheduled{
+  opacity:0.85;
+}
+
+.check-item.rescheduled .check-text{
+  text-decoration:line-through;
+  color:var(--muted);
+}
+
+.resched-flag{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  color:var(--accent);
+  background:var(--accent-soft);
+  border:1px solid var(--accent);
+  padding:2px 6px;
+  border-radius:3px;
+  white-space:nowrap;
+}
+
+.footer-bar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:22px;
+  border-top:2px solid var(--ink);
+  padding-top:12px;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.auth-gate{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.auth-box{
+  max-width:360px;
+  text-align:center;
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:32px 28px;
+}
+
+.auth-box h1{
+  font-family:'Fraunces',serif;
+  font-size:26px;
+  margin:0 0 10px;
+}
+
+.auth-box p{
+  font-size:14px;
+  color:var(--muted);
+  margin:0 0 18px;
+}
+
+.auth-box button{
+  width:100%;
+}
+
+.auth-error{
+  color:var(--stamp) !important;
+  font-size:12.5px !important;
+  margin-top:12px !important;
+}
+
+.auth-note{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px !important;
+  margin-top:16px !important;
+}
+
+</style>
+</head>
+<body>
+
+<div id="authGate" class="auth-gate">
+  <div class="auth-box">
+    <h1>Daily Timetable</h1>
+    <p>Sign in to sync your planner across every device.</p>
+    <button id="signInBtn" class="stamp">Sign in with Google</button>
+    <p class="auth-error" id="authError"></p>
+    <p class="auth-note">Your data is private to your account — no one else can see it.</p>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+<div class="sheet" id="sheetRoot">
+  <div class="tab" id="dateTab">--/--/----</div>
+  <header>
+    <div>
+      <h1>Daily Timetable</h1>
+      <div class="subtitle">6:00 AM &rarr; 12:00 AM</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <button type="button" id="signOutBtn" class="icon-btn" title="Sign out" style="width:auto; padding:0 10px; font-size:11px; font-family:'IBM Plex Mono',monospace;">Sign out</button>
+      <div class="settings-wrap">
+        <button type="button" id="settingsBtn" class="icon-btn" title="Category colours" aria-haspopup="true" aria-expanded="false">&#9881;</button>
+        <div class="settings-panel" id="settingsPanel" style="display:none;">
+          <h3>Category colours</h3>
+          <div class="colour-grid" id="colourGrid"></div>
+          <div class="settings-actions">
+            <button class="secondary" id="settingsCancel">Cancel</button>
+            <button class="stamp" id="settingsSave">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="top-grid">
+    <div class="top-left">
+      <div class="controls">
+        <div class="field" style="display:none;">
+          <label for="calendarDate">Pick a date</label>
+          <input type="date" id="calendarDate">
+        </div>
+        <div class="field">
+          <label>Day</label>
+          <div class="date-display" id="weekdayDisplay">--</div>
+        </div>
+        <div class="field">
+          <label>Month</label>
+          <div class="date-display" id="monthDisplay">--</div>
+        </div>
+        <div class="field">
+          <label>Year</label>
+          <div class="date-display" id="yearDisplay">----</div>
+        </div>
+      </div>
+
+      <div class="checklist-section">
+        <h2>To Do</h2>
+        <div class="check-add">
+          <input type="text" id="checkInput" placeholder="Add a task...">
+          <button id="addCheckBtn">Add</button>
+        </div>
+        <ul class="check-list" id="checkList"></ul>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <div class="field mini-cal-field">
+        <label>Calendar</label>
+        <div class="mini-calendar" id="miniCalendar">
+          <div class="mini-cal-header">
+            <button type="button" id="miniCalPrev" class="mini-cal-nav" aria-label="Previous month">&#8249;</button>
+            <span id="miniCalLabel">-- ----</span>
+            <button type="button" id="miniCalNext" class="mini-cal-nav" aria-label="Next month">&#8250;</button>
+          </div>
+          <div class="mini-cal-grid" id="miniCalGrid"></div>
+          <div class="mini-cal-footer">
+            <p class="mini-cal-hint">Dot = a saved plan that day. Click any day to open it.</p>
+            <button type="button" id="miniCalToday" class="mini-cal-today">Today</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="calendar-hint">Click any empty space to add an activity block. Drag a block to move it, drag its bottom edge to resize, click it to edit or add a note. Everything autosaves as you go.</p>
+
+  <div class="calendar-wrap" id="calendarWrap">
+    <div class="calendar-axis" id="calendarAxis"></div>
+    <div class="calendar-grid" id="calendarGrid">
+      <div id="linesLayer"></div>
+      <div id="eventsLayer"></div>
+    </div>
+  </div>
+
+  <div class="event-drawer" id="eventDrawer">
+    <div class="drawer-row">
+      <div class="field">
+        <label for="drawerStart">Start</label>
+        <select id="drawerStart"></select>
+      </div>
+      <div class="field">
+        <label for="drawerEnd">End</label>
+        <select id="drawerEnd"></select>
+      </div>
+      <div class="field">
+        <label for="drawerCategory">Category</label>
+        <select id="drawerCategory"></select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label for="drawerActivity">Activity</label>
+      <input type="text" id="drawerActivity" placeholder="e.g. Deep Work">
+    </div>
+    <div class="field">
+      <label for="drawerNote">Note</label>
+      <textarea id="drawerNote" placeholder="Add more detail..."></textarea>
+    </div>
+    <div class="drawer-actions">
+      <button class="secondary" id="drawerCancel">Cancel</button>
+      <button class="secondary" id="drawerDelete">Delete</button>
+      <button class="stamp" id="drawerSave">Save event</button>
+    </div>
+  </div>
+
+  <div class="recurring-section">
+    <button type="button" class="section-toggle" id="recurringToggle" aria-expanded="false">
+      <span>Recurring events</span>
+      <span class="chevron" id="recurringChevron">&#9656;</span>
+    </button>
+    <div class="recurring-body" id="recurringBody" style="display:none;">
+      <div class="recurring-form">
+        <div class="weekday-picks" id="weekdayPicks"></div>
+        <div class="recurring-time">
+          <div class="field">
+            <label for="recurStart">From</label>
+            <select id="recurStart"></select>
+          </div>
+          <div class="field">
+            <label for="recurEnd">To</label>
+            <select id="recurEnd"></select>
+          </div>
+          <div class="field">
+            <label for="recurCategory">Category</label>
+            <select id="recurCategory"></select>
+          </div>
+          <div class="field" style="flex:1;">
+            <label for="recurActivity">Activity</label>
+            <input type="text" id="recurActivity" placeholder="e.g. Tuition">
+          </div>
+        </div>
+        <div class="recurring-note-row">
+          <div class="field" style="flex:1;">
+            <label for="recurNote">Note (optional)</label>
+            <input type="text" id="recurNote" placeholder="Add more detail...">
+          </div>
+          <button id="addRecurBtn">Add</button>
+        </div>
+      </div>
+      <ul class="recurring-list" id="recurringList"></ul>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span class="status" id="statusMsg"></span>
+    <div style="display:flex; gap:8px;">
+      <button class="secondary" id="clearBtn">Clear day</button>
+      <button class="stamp" id="saveBtn">Save now</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!--
+============================================================
+FIREBASE SETUP — do this once before using the app
+============================================================
+This planner syncs through Firebase (free tier — no cost for
+personal use) so your data follows you across every device.
+
+1. Go to https://console.firebase.google.com and create a project
+   (free, just needs a Google account).
+2. In the project: Build > Firestore Database > Create database
+   (choose "production mode", any region is fine).
+3. In the project: Build > Authentication > Sign-in method >
+   enable "Google" as a sign-in provider.
+4. In the project: Project settings (gear icon, top left) >
+   General tab > scroll to "Your apps" > click the "</>" (web)
+   icon > register the app (skip Firebase Hosting) > it will
+   show you a firebaseConfig object.
+5. Open config.js (a separate file next to this one) and paste
+   your values into it — keeps your keys out of this file.
+6. In Firestore Database > Rules, replace the default rules with:
+
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /planners/{uid}/data/{docId} {
+         allow read, write: if request.auth != null && request.auth.uid == uid;
+       }
+     }
+   }
+
+   This keeps everyone's planner private to their own account.
+7. Save both files, upload them to a GitHub repo, and turn on
+   GitHub Pages (Settings > Pages) to get a shareable URL that
+   works the same way on your phone and laptop. If your repo is
+   public, add "config.js" to a .gitignore file first (a starter
+   .gitignore is included alongside this file) so your config
+   isn't sitting in the repo's history for anyone browsing it —
+   note this is just tidiness, not a security requirement: these
+   values aren't secret the way a password is, since Firestore's
+   Rules (step 6) are what actually keep your data private.
+============================================================
+-->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+
+<!-- Your Firebase keys live in config.js, next to this file — see config.js for setup instructions. Keep that file out of any public repo. -->
+<script src="config.js"></script>
+
+<script>
+if (typeof FIREBASE_CONFIG === 'undefined') {
+  document.write('<p style="font-family:monospace; padding:24px; color:#A8402F;">config.js not found (or didn\'t load) — see the setup comment near the top of this file, and the instructions inside config.js.</p>');
+  throw new Error('FIREBASE_CONFIG missing — add config.js next to this HTML file.');
+}
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+let currentUid = null;
+let liveUnsubscribers = []; // active onSnapshot listeners, torn down/rebuilt as needed
+
+function stopAllLiveListeners() {
+  liveUnsubscribers.forEach(unsub => { try { unsub(); } catch (e) {} });
+  liveUnsubscribers = [];
+}
+
+// ---- Firestore-backed replacements for the old window.storage API ----
+// Every planner value (a day's plan, recurring rules, category colours)
+// is stored as one document at planners/{uid}/data/{key}, where {key}
+// is the exact same string the app already used (e.g. "day:2026-07-30").
+
+function dataCollection() {
+  return db.collection('planners').doc(currentUid).collection('data');
+}
+
+async function dbGet(key) {
+  const snap = await dataCollection().doc(key).get();
+  if (!snap.exists) return null;
+  return { key, value: snap.data().value };
+}
+
+async function dbSet(key, value) {
+  await dataCollection().doc(key).set({ value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  return { key, value };
+}
+
+async function dbDelete(key) {
+  await dataCollection().doc(key).delete();
+  return { key, deleted: true };
+}
+
+async function dbList(prefix) {
+  const snap = await dataCollection()
+    .where(firebase.firestore.FieldPath.documentId(), '>=', prefix)
+    .where(firebase.firestore.FieldPath.documentId(), '<', prefix + '\uf8ff')
+    .get();
+  const keys = [];
+  snap.forEach(d => keys.push(d.id));
+  return { keys };
+}
+
+// ---- Sign-in gate ----
+const authGate = document.getElementById('authGate');
+const appRoot = document.getElementById('appRoot');
+const authError = document.getElementById('authError');
+
+document.getElementById('signInBtn').addEventListener('click', async () => {
+  authError.textContent = '';
+  try {
+    await auth.signInWithPopup(googleProvider);
+  } catch (err) {
+    authError.textContent = 'Sign-in failed — please try again.';
+  }
+});
+document.getElementById('signOutBtn').addEventListener('click', () => {
+  stopAllLiveListeners();
+  auth.signOut();
+});
+
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    currentUid = user.uid;
+    authGate.style.display = 'none';
+    appRoot.style.display = 'block';
+    startApp();
+  } else {
+    currentUid = null;
+    stopAllLiveListeners();
+    authGate.style.display = 'flex';
+    appRoot.style.display = 'none';
+  }
+});
+
+/* ---------- Time model: minutes-from-midnight, 30-min grid, 6:00 AM to 12:00 AM ---------- */
+const DAY_START = 6 * 60;
+const DAY_END = 24 * 60;
+const SLOT_MIN = 30;
+const SLOT_H = 28; // px per 30-min slot
+const TOTAL_H = ((DAY_END - DAY_START) / SLOT_MIN) * SLOT_H;
+const VPAD = 14; // px breathing room so the first/last hour labels aren't clipped
+
+const BOUNDARIES = [];
+for (let m = DAY_START; m <= DAY_END; m += SLOT_MIN) BOUNDARIES.push(m);
+
+function formatTime(mins) {
+  const wrapped = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(wrapped / 60);
+  const mm = wrapped % 60;
+  const period = h < 12 ? 'AM' : 'PM';
+  let display = h % 12;
+  if (display === 0) display = 12;
+  return mm === 0 ? `${display}:00 ${period}` : `${display}:${String(mm).padStart(2, '0')} ${period}`;
+}
+function boundaryLabel(m) { return m === 1440 ? '12:00 AM' : formatTime(m); }
+function pxFromMinutes(m) { return VPAD + ((m - DAY_START) / SLOT_MIN) * SLOT_H; }
+
+const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const orderedWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const CATEGORIES = [
+  { name: 'Work', color: '#3B6EA5' },
+  { name: 'Meeting', color: '#D9622B' },
+  { name: 'Study', color: '#3E8E7E' },
+  { name: 'Exercise', color: '#6B4FA0' },
+  { name: 'Personal', color: '#B3455B' },
+  { name: 'Break', color: '#8A8371' },
+  { name: 'Other', color: '#4A4A4A' }
+];
+let categoryColors = {}; // name -> custom hex, loaded from storage; falls back to CATEGORIES default
+let editingColors = {};  // working copy while the settings panel is open
+function categoryColor(name) {
+  if (categoryColors[name]) return categoryColors[name];
+  const c = CATEGORIES.find(c => c.name === name);
+  return c ? c.color : '#4A4A4A';
+}
+async function saveCategoryColors() {
+  try { await dbSet('category-colors', JSON.stringify(categoryColors)); }
+  catch (err) { statusMsg.textContent = 'Could not save colour — please try again.'; }
+}
+async function loadCategoryColors() {
+  try {
+    const result = await dbGet('category-colors');
+    categoryColors = (result && result.value) ? JSON.parse(result.value) : {};
+  } catch (err) { categoryColors = {}; }
+}
+function renderColourGrid() {
+  const colourGrid = document.getElementById('colourGrid');
+  colourGrid.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const current = editingColors[cat.name] || categoryColor(cat.name);
+    const row = document.createElement('div');
+    row.className = 'colour-row';
+    row.innerHTML = `
+      <span class="colour-swatch-btn" style="background:${current}">
+        <input type="color" data-category="${cat.name}" value="${current}">
+      </span>
+      <span>${cat.name}</span>
+    `;
+    colourGrid.appendChild(row);
+  });
+  colourGrid.querySelectorAll('input[type="color"]').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const cat = e.target.dataset.category;
+      editingColors[cat] = e.target.value;
+      e.target.closest('.colour-swatch-btn').style.background = e.target.value;
+      // Preview only — nothing is applied to the calendar or saved until "Save" is pressed.
+    });
+  });
+}
+
+/* ---------- DOM refs ---------- */
+const calendarWrap = document.getElementById('calendarWrap');
+const calendarAxis = document.getElementById('calendarAxis');
+const calendarGrid = document.getElementById('calendarGrid');
+const linesLayer = document.getElementById('linesLayer');
+const eventsLayer = document.getElementById('eventsLayer');
+
+const calendarDate = document.getElementById('calendarDate');
+const weekdayDisplay = document.getElementById('weekdayDisplay');
+const monthDisplay = document.getElementById('monthDisplay');
+const yearDisplay = document.getElementById('yearDisplay');
+const dateTab = document.getElementById('dateTab');
+const miniCalLabel = document.getElementById('miniCalLabel');
+const miniCalGrid = document.getElementById('miniCalGrid');
+const statusMsg = document.getElementById('statusMsg');
+const checkList = document.getElementById('checkList');
+const checkInput = document.getElementById('checkInput');
+
+const eventDrawer = document.getElementById('eventDrawer');
+const drawerStart = document.getElementById('drawerStart');
+const drawerEnd = document.getElementById('drawerEnd');
+const drawerCategory = document.getElementById('drawerCategory');
+const drawerActivity = document.getElementById('drawerActivity');
+const drawerNote = document.getElementById('drawerNote');
+
+/* ---------- Build static calendar chrome (axis + gridlines) ---------- */
+calendarAxis.style.height = (TOTAL_H + VPAD * 2) + 'px';
+calendarGrid.style.height = (TOTAL_H + VPAD * 2) + 'px';
+
+BOUNDARIES.forEach(m => {
+  const top = pxFromMinutes(m);
+  const line = document.createElement('div');
+  line.className = 'grid-line ' + (m % 60 === 0 ? 'hour-line' : 'half-line');
+  line.style.top = top + 'px';
+  linesLayer.appendChild(line);
+
+  if (m % 60 === 0 && m < DAY_END) {
+    const label = document.createElement('div');
+    label.className = 'axis-label';
+    label.style.top = top + 'px';
+    label.textContent = boundaryLabel(m);
+    calendarAxis.appendChild(label);
+  }
+});
+
+BOUNDARIES.forEach(m => {
+  const opt1 = document.createElement('option'); opt1.value = m; opt1.textContent = boundaryLabel(m);
+  drawerStart.appendChild(opt1);
+  const opt2 = document.createElement('option'); opt2.value = m; opt2.textContent = boundaryLabel(m);
+  drawerEnd.appendChild(opt2);
+});
+CATEGORIES.forEach(c => {
+  const opt = document.createElement('option'); opt.value = c.name; opt.textContent = c.name;
+  drawerCategory.appendChild(opt);
+});
+
+/* ---------- State ---------- */
+let events = [];       // {id, start, end, category, activity, note}
+let checklist = [];
+let recurringRules = []; // {weekdays, start, end, category, activity}
+let editingId = null;
+let uidCounter = 1;
+function nextId() { return 'ev' + (Date.now()) + '-' + (uidCounter++); }
+
+/* ---------- Rendering events ---------- */
+function renderEvents() {
+  eventsLayer.innerHTML = '';
+  events.slice().sort((a, b) => a.start - b.start).forEach(ev => {
+    const block = document.createElement('div');
+    block.className = 'event-block';
+    block.dataset.id = ev.id;
+    block.style.top = (pxFromMinutes(ev.start) + 2) + 'px';
+    block.style.height = Math.max(SLOT_H - 4, pxFromMinutes(ev.end) - pxFromMinutes(ev.start) - 4) + 'px';
+    block.style.background = categoryColor(ev.category);
+    block.innerHTML = `
+      <button type="button" class="ev-delete" data-id="${ev.id}">&times;</button>
+      <span class="ev-activity">${ev.activity || ev.category}${ev.note ? '<span class="ev-note-dots">&hellip;</span>' : ''}</span>
+      <div class="resize-handle" data-id="${ev.id}"></div>
+    `;
+    eventsLayer.appendChild(block);
+  });
+}
+
+/* ---------- Drawer ---------- */
+function openDrawer(ev) {
+  editingId = ev.id || null;
+  drawerStart.value = ev.start;
+  drawerEnd.value = ev.end;
+  drawerCategory.value = ev.category;
+  drawerActivity.value = ev.activity || '';
+  drawerNote.value = ev.note || '';
+  document.getElementById('drawerDelete').style.display = editingId ? 'inline-block' : 'none';
+  eventDrawer.style.display = 'block';
+  eventDrawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeDrawer() {
+  eventDrawer.style.display = 'none';
+  editingId = null;
+}
+
+document.getElementById('drawerCancel').addEventListener('click', closeDrawer);
+
+document.getElementById('drawerSave').addEventListener('click', () => {
+  const start = Number(drawerStart.value);
+  const end = Number(drawerEnd.value);
+  if (end <= start) { statusMsg.textContent = 'End time must be after start time.'; return; }
+  const category = drawerCategory.value;
+  const activity = drawerActivity.value.trim() || category;
+  const note = drawerNote.value;
+  if (editingId) {
+    const idx = events.findIndex(e => e.id === editingId);
+    if (idx > -1) events[idx] = { id: editingId, start, end, category, activity, note };
+  } else {
+    events.push({ id: nextId(), start, end, category, activity, note });
+  }
+  renderEvents();
+  closeDrawer();
+  scheduleAutoSave();
+});
+
+document.getElementById('drawerDelete').addEventListener('click', () => {
+  if (editingId) events = events.filter(e => e.id !== editingId);
+  renderEvents();
+  closeDrawer();
+  scheduleAutoSave();
+});
+
+/* ---------- Creating a new event by clicking empty grid space ---------- */
+function minutesFromClientY(clientY) {
+  const rect = calendarGrid.getBoundingClientRect();
+  const y = clientY - rect.top;
+  let minutes = DAY_START + (y / SLOT_H) * SLOT_MIN;
+  minutes = Math.round(minutes / SLOT_MIN) * SLOT_MIN;
+  return Math.max(DAY_START, Math.min(DAY_END - SLOT_MIN, minutes));
+}
+
+let suppressGridClick = false;
+
+calendarGrid.addEventListener('click', (e) => {
+  if (suppressGridClick) { suppressGridClick = false; return; }
+  if (e.target !== calendarGrid && e.target !== linesLayer && e.target !== eventsLayer) return;
+  const start = minutesFromClientY(e.clientY);
+  openDrawer({ start, end: Math.min(DAY_END, start + 60), category: CATEGORIES[0].name, activity: '', note: '' });
+});
+
+/* ---------- Dragging & resizing existing blocks ---------- */
+let dragState = null; // { id, mode: 'move'|'resize', startY, origStart, origEnd }
+
+eventsLayer.addEventListener('pointerdown', (e) => {
+  const id = e.target.dataset.id;
+  if (!id) return;
+  const ev = events.find(x => x.id === id);
+  if (!ev) return;
+
+  if (e.target.classList.contains('ev-delete')) return; // handled by its own click
+  const mode = e.target.classList.contains('resize-handle') ? 'resize' : 'move';
+  dragState = { id, mode, startY: e.clientY, origStart: ev.start, origEnd: ev.end, moved: false };
+  e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!dragState) return;
+  const deltaY = e.clientY - dragState.startY;
+  if (Math.abs(deltaY) > 3) dragState.moved = true;
+  const deltaMin = Math.round(deltaY / SLOT_H) * SLOT_MIN;
+  const ev = events.find(x => x.id === dragState.id);
+  if (!ev) return;
+
+  if (dragState.mode === 'move') {
+    const duration = dragState.origEnd - dragState.origStart;
+    let newStart = dragState.origStart + deltaMin;
+    newStart = Math.max(DAY_START, Math.min(DAY_END - duration, newStart));
+    ev.start = newStart;
+    ev.end = newStart + duration;
+  } else {
+    let newEnd = dragState.origEnd + deltaMin;
+    newEnd = Math.max(dragState.origStart + SLOT_MIN, Math.min(DAY_END, newEnd));
+    ev.end = newEnd;
+  }
+  renderEvents();
+});
+
+document.addEventListener('pointerup', () => {
+  if (dragState && dragState.moved) {
+    suppressGridClick = true;
+    scheduleAutoSave();
+  }
+  dragState = null;
+});
+
+eventsLayer.addEventListener('click', (e) => {
+  if (e.target.classList.contains('ev-delete')) {
+    const id = e.target.dataset.id;
+    events = events.filter(x => x.id !== id);
+    renderEvents();
+    suppressGridClick = true;
+    scheduleAutoSave();
+    return;
+  }
+  const block = e.target.closest('.event-block');
+  if (!block) return;
+  if (suppressGridClick) return; // this click was the end of a drag, not a tap
+  const ev = events.find(x => x.id === block.dataset.id);
+  if (ev) openDrawer(ev);
+});
+
+/* ---------- Date / weekday controls ---------- */
+function pad(n) { return String(n).padStart(2, '0'); }
+const now = new Date();
+calendarDate.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+function getParts() {
+  const [y, m, d] = calendarDate.value.split('-');
+  return { y, m, d };
+}
+function currentKey() {
+  const { y, m, d } = getParts();
+  return `day:${y}-${m}-${d}`;
+}
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function updateDateDisplay() {
+  const { y, m, d } = getParts();
+  const label = `${d}/${m}/${y}`;
+  dateTab.textContent = label;
+  monthDisplay.textContent = monthNames[Number(m) - 1];
+  yearDisplay.textContent = y;
+  const weekdayIdx = new Date(Number(y), Number(m) - 1, Number(d)).getDay();
+  weekdayDisplay.textContent = weekdayNames[weekdayIdx];
+}
+
+/* ---------- Checklist ---------- */
+function renderChecklist() {
+  checkList.innerHTML = '';
+  checklist.forEach((item, idx) => {
+    const li = document.createElement('li');
+    if (item.status === 'rescheduled') {
+      li.className = 'check-item rescheduled';
+      li.innerHTML = `
+        <span class="resched-flag">&#8594; ${item.rescheduledTo}</span>
+        <span class="check-text">${item.text}</span>
+        <div class="check-actions">
+          <button class="remove-btn" data-idx="${idx}">Remove</button>
+        </div>
+      `;
+    } else {
+      li.className = 'check-item' + (item.done ? ' done' : '');
+      li.innerHTML = `
+        <input type="checkbox" ${item.done ? 'checked' : ''} data-idx="${idx}">
+        <span class="check-text">${item.text}</span>
+        <div class="check-actions">
+          <button class="resched-btn" data-idx="${idx}">Reschedule</button>
+          <button class="remove-btn" data-idx="${idx}">Remove</button>
+        </div>
+        <div class="resched-inline" id="resched-inline-${idx}" style="display:none;">
+          <input type="date" id="resched-date-${idx}">
+          <button class="stamp resched-confirm" data-idx="${idx}">Confirm</button>
+          <button class="secondary resched-cancel" data-idx="${idx}">Cancel</button>
+        </div>
+      `;
+    }
+    checkList.appendChild(li);
+  });
+}
+
+async function pushChecklistItemToDay(targetDateStr, text) {
+  const targetKey = `day:${targetDateStr}`;
+  const [ty, tm, td] = targetDateStr.split('-');
+  let targetData = null;
+  try {
+    const result = await dbGet(targetKey);
+    if (result && result.value) targetData = JSON.parse(result.value);
+  } catch (err) {
+    targetData = null; // no saved plan yet for that date — normal, we'll create one below
+  }
+  if (!targetData) {
+    const weekdayIdx = new Date(Number(ty), Number(tm) - 1, Number(td)).getDay();
+    targetData = { weekday: weekdayNames[weekdayIdx], date: `${td}/${tm}/${ty}`, events: [], checklist: [] };
+  }
+  targetData.checklist = targetData.checklist || [];
+  targetData.checklist.push({ text, done: false });
+  try {
+    await dbSet(targetKey, JSON.stringify(targetData));
+    await refreshSavedDays();
+  } catch (err) {
+    statusMsg.textContent = 'Could not reschedule — please try again.';
+  }
+}
+
+async function rescheduleItem(idx, targetDateStr) {
+  const item = checklist[idx];
+  if (!item) return;
+  const [ty, tm, td] = targetDateStr.split('-');
+  item.status = 'rescheduled';
+  item.rescheduledTo = `${td}/${tm}/${ty}`;
+  renderChecklist();
+  await pushChecklistItemToDay(targetDateStr, item.text);
+  await saveDay();
+  statusMsg.textContent = `Moved "${item.text}" to ${item.rescheduledTo}.`;
+}
+
+checkList.addEventListener('click', (e) => {
+  const idx = Number(e.target.dataset.idx);
+  if (e.target.matches('input[type="checkbox"]')) {
+    checklist[idx].done = e.target.checked;
+    renderChecklist();
+    scheduleAutoSave();
+  } else if (e.target.classList.contains('remove-btn')) {
+    checklist.splice(idx, 1);
+    renderChecklist();
+    scheduleAutoSave();
+  } else if (e.target.classList.contains('resched-btn')) {
+    const inline = document.getElementById(`resched-inline-${idx}`);
+    inline.style.display = inline.style.display === 'none' ? 'flex' : 'none';
+  } else if (e.target.classList.contains('resched-cancel')) {
+    document.getElementById(`resched-inline-${idx}`).style.display = 'none';
+  } else if (e.target.classList.contains('resched-confirm')) {
+    const dateInput = document.getElementById(`resched-date-${idx}`);
+    if (!dateInput.value) { statusMsg.textContent = 'Pick a date first.'; return; }
+    rescheduleItem(idx, dateInput.value);
+  }
+});
+document.getElementById('addCheckBtn').addEventListener('click', () => {
+  const text = checkInput.value.trim();
+  if (!text) return;
+  checklist.push({ text, done: false });
+  checkInput.value = '';
+  renderChecklist();
+  scheduleAutoSave();
+});
+checkInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('addCheckBtn').click(); });
+
+function wireToggle(toggleId, bodyId) {
+  const toggle = document.getElementById(toggleId);
+  const body = document.getElementById(bodyId);
+  toggle.addEventListener('click', () => {
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    toggle.setAttribute('aria-expanded', String(!isOpen));
+  });
+}
+
+/* ---------- Recurring events ---------- */
+wireToggle('recurringToggle', 'recurringBody');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+
+function openSettingsPanel() {
+  editingColors = { ...categoryColors };
+  renderColourGrid();
+  settingsPanel.style.display = 'block';
+  settingsBtn.setAttribute('aria-expanded', 'true');
+}
+function closeSettingsPanel() {
+  settingsPanel.style.display = 'none';
+  settingsBtn.setAttribute('aria-expanded', 'false');
+}
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = settingsPanel.style.display !== 'none';
+  if (isOpen) closeSettingsPanel(); else openSettingsPanel();
+});
+document.getElementById('settingsCancel').addEventListener('click', closeSettingsPanel);
+document.getElementById('settingsSave').addEventListener('click', async () => {
+  categoryColors = { ...editingColors };
+  await saveCategoryColors();
+  renderEvents();        // re-colours every block on today's view, old or new, since colour is looked up by category name
+  renderRecurringList();
+  closeSettingsPanel();
+  statusMsg.textContent = 'Category colours updated.';
+});
+document.addEventListener('click', (e) => {
+  if (settingsPanel.style.display === 'none') return;
+  if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) closeSettingsPanel();
+});
+
+const weekdayPicksEl = document.getElementById('weekdayPicks');
+const recurStartSel = document.getElementById('recurStart');
+const recurEndSel = document.getElementById('recurEnd');
+const recurCategorySel = document.getElementById('recurCategory');
+const recurActivityInput = document.getElementById('recurActivity');
+const recurNoteInput = document.getElementById('recurNote');
+const recurringListEl = document.getElementById('recurringList');
+
+orderedWeekdays.forEach(day => {
+  const label = document.createElement('label');
+  label.innerHTML = `<input type="checkbox" value="${day}"> ${day.slice(0, 3)}`;
+  weekdayPicksEl.appendChild(label);
+});
+BOUNDARIES.forEach(m => {
+  const o1 = document.createElement('option'); o1.value = m; o1.textContent = boundaryLabel(m);
+  recurStartSel.appendChild(o1);
+  const o2 = document.createElement('option'); o2.value = m; o2.textContent = boundaryLabel(m);
+  recurEndSel.appendChild(o2);
+});
+CATEGORIES.forEach(c => {
+  const o = document.createElement('option'); o.value = c.name; o.textContent = c.name;
+  recurCategorySel.appendChild(o);
+});
+recurStartSel.value = 19 * 60; // 7:00 PM
+recurEndSel.value = 21 * 60;   // 9:00 PM
+
+function renderRecurringList() {
+  recurringListEl.innerHTML = '';
+  recurringRules.forEach((rule, idx) => {
+    const li = document.createElement('li');
+    li.className = 'recurring-item';
+    li.innerHTML = `
+      <span class="rec-swatch" style="background:${categoryColor(rule.category)}"></span>
+      <div class="rec-info">
+        ${rule.activity} &middot; ${boundaryLabel(rule.start)} \u2013 ${boundaryLabel(rule.end)}
+        <span class="rec-days">${rule.weekdays.map(d => d.slice(0, 3)).join(', ')}${rule.note ? ' &middot; has note' : ''}</span>
+      </div>
+      <button data-idx="${idx}">Remove</button>
+    `;
+    recurringListEl.appendChild(li);
+  });
+}
+async function saveRecurringRules() {
+  try { await dbSet('recurring-rules', JSON.stringify(recurringRules)); }
+  catch (err) { statusMsg.textContent = 'Could not save recurring event — please try again.'; }
+}
+async function loadRecurringRules() {
+  try {
+    const result = await dbGet('recurring-rules');
+    recurringRules = (result && result.value) ? JSON.parse(result.value) : [];
+  } catch (err) { recurringRules = []; }
+  renderRecurringList();
+}
+document.getElementById('addRecurBtn').addEventListener('click', async () => {
+  const activity = recurActivityInput.value.trim();
+  const start = Number(recurStartSel.value);
+  const end = Number(recurEndSel.value);
+  const category = recurCategorySel.value;
+  const note = recurNoteInput.value.trim();
+  const weekdays = Array.from(weekdayPicksEl.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  if (!activity || weekdays.length === 0 || end <= start) return;
+  const newRule = { activity, start, end, category, weekdays, note };
+  recurringRules.push(newRule);
+  recurActivityInput.value = '';
+  recurNoteInput.value = '';
+  weekdayPicksEl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+  renderRecurringList();
+  await saveRecurringRules();
+
+  if (!currentDayIsSaved && newRule.weekdays.includes(weekdayDisplay.textContent)) {
+    events.push({
+      id: nextId(),
+      start: newRule.start,
+      end: newRule.end,
+      category: newRule.category,
+      activity: newRule.activity,
+      note: newRule.note || ''
+    });
+    renderEvents();
+    statusMsg.textContent = `Added "${newRule.activity}" to today's view — save this day to keep it, or change the block to override.`;
+  }
+});
+recurringListEl.addEventListener('click', async (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  const idx = Number(e.target.dataset.idx);
+  recurringRules.splice(idx, 1);
+  renderRecurringList();
+  await saveRecurringRules();
+});
+
+function applyRecurringDefaults(weekday) {
+  recurringRules.forEach(rule => {
+    if (!rule.weekdays.includes(weekday)) return;
+    events.push({
+      id: nextId(),
+      start: rule.start,
+      end: rule.end,
+      category: rule.category,
+      activity: rule.activity,
+      note: rule.note || ''
+    });
+  });
+}
+
+/* ---------- Save / load / clear day ---------- */
+function clearForm() {
+  events = [];
+  checklist = [];
+  renderEvents();
+  renderChecklist();
+  closeDrawer();
+}
+
+let currentDayIsSaved = false;
+
+async function loadDay() {
+  updateDateDisplay();
+  statusMsg.textContent = 'Loading...';
+  const key = currentKey();
+  const weekday = weekdayDisplay.textContent;
+  try {
+    const result = await dbGet(key);
+    if (result && result.value) {
+      const data = JSON.parse(result.value);
+      events = data.events || [];
+      checklist = data.checklist || [];
+      currentDayIsSaved = true;
+      renderEvents();
+      renderChecklist();
+      closeDrawer();
+      const { y, m, d } = getParts();
+      statusMsg.textContent = `Loaded saved plan for ${d}/${m}/${y}`;
+    } else {
+      clearForm();
+      currentDayIsSaved = false;
+      applyRecurringDefaults(weekday);
+      renderEvents();
+      statusMsg.textContent = 'No saved plan yet — showing your recurring defaults for ' + weekday + '.';
+    }
+  } catch (err) {
+    clearForm();
+    currentDayIsSaved = false;
+    applyRecurringDefaults(weekday);
+    renderEvents();
+    statusMsg.textContent = 'No saved plan yet — showing your recurring defaults for ' + weekday + '.';
+  }
+}
+
+async function saveDay() {
+  const key = currentKey();
+  const { y, m, d } = getParts();
+  const data = {
+    weekday: weekdayDisplay.textContent,
+    date: `${d}/${m}/${y}`,
+    events,
+    checklist
+  };
+  statusMsg.textContent = 'Saving...';
+  try {
+    const result = await dbSet(key, JSON.stringify(data));
+    if (result) {
+      currentDayIsSaved = true;
+      statusMsg.textContent = `Autosaved \u2013 ${data.date}`;
+      await refreshSavedDays();
+    } else {
+      statusMsg.textContent = 'Save failed — please try again.';
+    }
+  } catch (err) {
+    statusMsg.textContent = 'Save failed — please try again.';
+  }
+}
+
+let autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  statusMsg.textContent = 'Editing...';
+  autoSaveTimer = setTimeout(() => { saveDay(); }, 900);
+}
+
+let savedDatesSet = new Set();
+let viewYear = null;
+let viewMonth = null; // 0-indexed
+
+function syncMiniCalToSelected() {
+  const { y, m } = getParts();
+  viewYear = Number(y);
+  viewMonth = Number(m) - 1;
+  renderMiniCalendar();
+}
+
+function renderMiniCalendar() {
+  if (viewYear === null) return;
+  miniCalLabel.textContent = `${monthNames[viewMonth]} ${viewYear}`;
+  miniCalGrid.innerHTML = '';
+  ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].forEach(dow => {
+    const h = document.createElement('div');
+    h.className = 'mini-cal-dow';
+    h.textContent = dow;
+    miniCalGrid.appendChild(h);
+  });
+  const firstDayJs = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sunday
+  const leading = (firstDayJs + 6) % 7; // convert to Monday-first
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  for (let i = 0; i < leading; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'mini-cal-blank';
+    miniCalGrid.appendChild(blank);
+  }
+  const selectedStr = calendarDate.value;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(day)}`;
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'mini-cal-day';
+    if (savedDatesSet.has(dateStr)) cell.classList.add('has-data');
+    if (dateStr === selectedStr) cell.classList.add('selected');
+    cell.dataset.date = dateStr;
+    cell.textContent = String(day);
+    miniCalGrid.appendChild(cell);
+  }
+  syncChecklistHeight();
+}
+
+function syncChecklistHeight() {
+  const miniCal = document.getElementById('miniCalendar');
+  const section = document.querySelector('.checklist-section');
+  if (!miniCal || !section) return;
+  section.style.height = 'auto'; // reset so we measure the section's true top, unaffected by any previous forced height
+  const miniCalBottom = miniCal.getBoundingClientRect().bottom;
+  const sectionTop = section.getBoundingClientRect().top;
+  const height = miniCalBottom - sectionTop;
+  if (height > 40) section.style.height = height + 'px';
+}
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(syncChecklistHeight, 150);
+});
+window.addEventListener('load', syncChecklistHeight);
+
+document.getElementById('miniCalPrev').addEventListener('click', () => {
+  viewMonth--;
+  if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+  renderMiniCalendar();
+});
+document.getElementById('miniCalNext').addEventListener('click', () => {
+  viewMonth++;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  renderMiniCalendar();
+});
+miniCalGrid.addEventListener('click', async (e) => {
+  const cell = e.target.closest('.mini-cal-day');
+  if (!cell) return;
+  await flushAutoSaveIfPending();
+  calendarDate.value = cell.dataset.date;
+  await loadDay();
+  attachCurrentDayListener();
+  renderMiniCalendar();
+});
+document.getElementById('miniCalToday').addEventListener('click', async () => {
+  await flushAutoSaveIfPending();
+  const t = new Date();
+  calendarDate.value = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+  await loadDay();
+  attachCurrentDayListener();
+  syncMiniCalToSelected();
+});
+
+async function refreshSavedDays() {
+  try {
+    const result = await dbList('day:');
+    const keys = (result && result.keys) || [];
+    savedDatesSet = new Set(keys.map(k => k.replace('day:', '')));
+  } catch (err) {
+    savedDatesSet = new Set();
+  }
+  renderMiniCalendar();
+}
+
+async function flushAutoSaveIfPending() {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+    await saveDay();
+  }
+}
+
+calendarDate.addEventListener('change', async () => {
+  await flushAutoSaveIfPending();
+  await loadDay();
+  attachCurrentDayListener();
+  syncMiniCalToSelected();
+});
+document.getElementById('saveBtn').addEventListener('click', saveDay);
+document.getElementById('clearBtn').addEventListener('click', async () => {
+  clearTimeout(autoSaveTimer); // cancel any pending autosave so it can't recreate the entry we're about to delete
+  autoSaveTimer = null;
+  clearForm();
+  const key = currentKey();
+  try {
+    await dbDelete(key);
+  } catch (err) {
+    // nothing was saved for this date anyway — that's the goal state either way
+  }
+  currentDayIsSaved = false;
+  await refreshSavedDays(); // rebuilds savedDatesSet and re-renders the mini calendar, dropping the dot
+  statusMsg.textContent = 'Cleared — this day has no saved plan now.';
+});
+
+async function init() {
+  updateDateDisplay();
+  syncMiniCalToSelected();
+  renderChecklist();
+  await loadCategoryColors();
+  renderColourGrid();
+  await loadRecurringRules();
+  await refreshSavedDays();
+  await loadDay();
+}
+
+// Called after sign-in (see onAuthStateChanged above). Runs the normal
+// startup sequence, then attaches live Firestore listeners so changes
+// made on another signed-in device show up here automatically.
+async function startApp() {
+  stopAllLiveListeners();
+  await init();
+  attachLiveListeners();
+}
+
+function attachLiveListeners() {
+  // Recurring rules — live across devices
+  liveUnsubscribers.push(dataCollection().doc('recurring-rules').onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return; // ignore the echo of our own write
+    recurringRules = (snap.exists && snap.data().value) ? JSON.parse(snap.data().value) : [];
+    renderRecurringList();
+  }));
+
+  // Category colours — live across devices
+  liveUnsubscribers.push(dataCollection().doc('category-colors').onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return;
+    categoryColors = (snap.exists && snap.data().value) ? JSON.parse(snap.data().value) : {};
+    renderEvents();
+  }));
+
+  // Which days have a saved plan — keeps the mini-calendar dots live
+  liveUnsubscribers.push(
+    dataCollection()
+      .where(firebase.firestore.FieldPath.documentId(), '>=', 'day:')
+      .where(firebase.firestore.FieldPath.documentId(), '<', 'day:\uf8ff')
+      .onSnapshot((snap) => {
+        savedDatesSet = new Set(snap.docs.map(d => d.id.replace('day:', '')));
+        renderMiniCalendar();
+      })
+  );
+
+  attachCurrentDayListener();
+}
+
+// Listens to just the day currently on screen, so an edit made on your
+// phone appears here within a second or two. Re-attached every time the
+// viewed date changes (see loadDay below).
+let currentDayUnsub = null;
+function attachCurrentDayListener() {
+  if (currentDayUnsub) { currentDayUnsub(); currentDayUnsub = null; }
+  const key = currentKey();
+  currentDayUnsub = dataCollection().doc(key).onSnapshot((snap) => {
+    if (snap.metadata.hasPendingWrites) return; // our own write echoing back — ignore
+    if (dragState || eventDrawer.style.display === 'block') return; // don't yank the UI mid-edit
+    if (!snap.exists) return;
+    const data = snap.data().value ? JSON.parse(snap.data().value) : null;
+    if (!data) return;
+    events = data.events || [];
+    checklist = data.checklist || [];
+    renderEvents();
+    renderChecklist();
+    statusMsg.textContent = 'Updated from another device.';
+  });
+  liveUnsubscribers.push(() => { if (currentDayUnsub) currentDayUnsub(); });
+}
+</script>
+
+</body>
+</html>
