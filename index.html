@@ -508,13 +508,45 @@ select:focus, input:focus, textarea:focus{
   position:absolute;
   top:44px;
   right:0;
-  width:230px;
+  width:300px;
+  max-height:80vh;
+  overflow-y:auto;
   background:var(--paper-2);
   border:1px solid var(--ink);
   border-radius:4px;
   padding:14px;
   box-shadow:0 6px 16px rgba(0,0,0,0.18);
   z-index:30;
+}
+
+.settings-divider{
+  border:none;
+  border-top:1px solid var(--line);
+  margin:16px 0;
+}
+
+.settings-hint{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  color:var(--muted);
+  margin:0 0 10px;
+  line-height:1.5;
+}
+
+.delete-range-row{
+  display:flex;
+  gap:10px;
+}
+
+.delete-range-row .field{ flex:1; min-width:0; }
+
+.delete-range-summary{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--accent);
+  margin:10px 0 0;
+  min-height:14px;
+  line-height:1.5;
 }
 
 .settings-panel h3{
@@ -648,12 +680,115 @@ select:focus, input:focus, textarea:focus{
   margin-top:2px;
 }
 
+.recurring-item .rec-actions{
+  display:flex;
+  gap:6px;
+  flex-shrink:0;
+}
+
 .recurring-item button{
   background:transparent;
   color:var(--stamp);
   border:1px solid var(--stamp);
   font-size:11px;
   padding:4px 8px;
+}
+
+.recurring-item .edit-btn{
+  color:var(--accent);
+  border-color:var(--accent);
+}
+
+.recurring-empty{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--muted);
+  padding:8px 2px;
+}
+
+.recurring-cat-group{
+  border:1px solid var(--line);
+  border-radius:2px;
+  background:var(--paper);
+  overflow:hidden;
+}
+
+.recurring-cat-header{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:var(--paper);
+  border:none;
+  padding:8px 10px;
+  cursor:pointer;
+  font-family:'Inter',sans-serif;
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink);
+  text-transform:none;
+  letter-spacing:normal;
+}
+
+.recurring-cat-header:hover{ opacity:0.85; }
+
+.recurring-cat-name{ flex:1; text-align:left; }
+
+.recurring-cat-count{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  color:var(--muted);
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:1px 7px;
+}
+
+.recurring-cat-header .chevron{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--accent);
+  width:12px;
+  text-align:center;
+}
+
+.recurring-cat-items{
+  list-style:none;
+  margin:0;
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  border-top:1px solid var(--line);
+}
+
+.recurring-cat-items .recurring-item{ border:none; background:var(--paper-2); }
+
+.recurring-form-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.recurring-error{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  color:var(--stamp);
+  margin:8px 0 0;
+  min-height:14px;
+}
+
+.check-item.editing{
+  align-items:center;
+}
+
+.check-edit-input{
+  flex:1;
+  min-width:0;
+}
+
+.check-item .edit-btn{
+  color:var(--accent);
 }
 
 /* --- Checklist --- */
@@ -855,6 +990,24 @@ button:hover{ opacity:0.85; }
             <button class="secondary" id="settingsCancel">Cancel</button>
             <button class="stamp" id="settingsSave">Save</button>
           </div>
+          <hr class="settings-divider">
+          <h3>Delete past entries</h3>
+          <p class="settings-hint">Permanently deletes saved plans (timetable + to-do list) for every day in the range below. This can't be undone.</p>
+          <div class="delete-range-row">
+            <div class="field">
+              <label for="deleteRangeFrom">From</label>
+              <input type="date" id="deleteRangeFrom">
+            </div>
+            <div class="field">
+              <label for="deleteRangeTo">To</label>
+              <input type="date" id="deleteRangeTo">
+            </div>
+          </div>
+          <p class="delete-range-summary" id="deleteRangeSummary"></p>
+          <div class="settings-actions">
+            <button class="secondary" id="deleteRangeCancelBtn" style="display:none;">Cancel</button>
+            <button class="stamp" id="deleteRangeBtn" disabled>Delete entries in range</button>
+          </div>
         </div>
       </div>
     </div>
@@ -981,8 +1134,12 @@ button:hover{ opacity:0.85; }
             <label for="recurNote">Note (optional)</label>
             <input type="text" id="recurNote" placeholder="Add more detail...">
           </div>
-          <button id="addRecurBtn">Add</button>
+          <div class="recurring-form-actions">
+            <button class="secondary" id="cancelRecurEditBtn" style="display:none;">Cancel edit</button>
+            <button id="addRecurBtn">Add</button>
+          </div>
         </div>
+        <p class="recurring-error" id="recurError"></p>
       </div>
       <ul class="recurring-list" id="recurringList"></ul>
     </div>
@@ -1442,16 +1599,33 @@ function updateDateDisplay() {
 }
 
 /* ---------- Checklist ---------- */
+function escapeAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+let editingCheckIdx = null;
+
 function renderChecklist() {
   checkList.innerHTML = '';
   checklist.forEach((item, idx) => {
     const li = document.createElement('li');
-    if (item.status === 'rescheduled') {
+    if (idx === editingCheckIdx) {
+      li.className = 'check-item editing';
+      li.innerHTML = `
+        <input type="checkbox" ${item.done ? 'checked' : ''} disabled>
+        <input type="text" class="check-edit-input" id="check-edit-${idx}" value="${escapeAttr(item.text)}">
+        <div class="check-actions">
+          <button class="stamp check-edit-save" data-idx="${idx}">Save</button>
+          <button class="secondary check-edit-cancel" data-idx="${idx}">Cancel</button>
+        </div>
+      `;
+    } else if (item.status === 'rescheduled') {
       li.className = 'check-item rescheduled';
       li.innerHTML = `
         <span class="resched-flag">&#8594; ${item.rescheduledTo}</span>
         <span class="check-text">${item.text}</span>
         <div class="check-actions">
+          <button class="edit-btn" data-idx="${idx}">Edit</button>
           <button class="remove-btn" data-idx="${idx}">Remove</button>
         </div>
       `;
@@ -1461,6 +1635,7 @@ function renderChecklist() {
         <input type="checkbox" ${item.done ? 'checked' : ''} data-idx="${idx}">
         <span class="check-text">${item.text}</span>
         <div class="check-actions">
+          <button class="edit-btn" data-idx="${idx}">Edit</button>
           <button class="resched-btn" data-idx="${idx}">Reschedule</button>
           <button class="remove-btn" data-idx="${idx}">Remove</button>
         </div>
@@ -1473,6 +1648,10 @@ function renderChecklist() {
     }
     checkList.appendChild(li);
   });
+  if (editingCheckIdx !== null) {
+    const input = document.getElementById(`check-edit-${editingCheckIdx}`);
+    if (input) { input.focus(); input.select(); }
+  }
 }
 
 async function pushChecklistItemToDay(targetDateStr, text) {
@@ -1511,6 +1690,17 @@ async function rescheduleItem(idx, targetDateStr) {
   statusMsg.textContent = `Moved "${item.text}" to ${item.rescheduledTo}.`;
 }
 
+function saveChecklistEdit(idx) {
+  const input = document.getElementById(`check-edit-${idx}`);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) { statusMsg.textContent = 'Task text can\'t be empty.'; return; }
+  checklist[idx].text = text;
+  editingCheckIdx = null;
+  renderChecklist();
+  scheduleAutoSave();
+}
+
 checkList.addEventListener('click', (e) => {
   const idx = Number(e.target.dataset.idx);
   if (e.target.matches('input[type="checkbox"]')) {
@@ -1518,9 +1708,18 @@ checkList.addEventListener('click', (e) => {
     renderChecklist();
     scheduleAutoSave();
   } else if (e.target.classList.contains('remove-btn')) {
+    if (editingCheckIdx === idx) editingCheckIdx = null;
     checklist.splice(idx, 1);
     renderChecklist();
     scheduleAutoSave();
+  } else if (e.target.classList.contains('edit-btn')) {
+    editingCheckIdx = idx;
+    renderChecklist();
+  } else if (e.target.classList.contains('check-edit-save')) {
+    saveChecklistEdit(idx);
+  } else if (e.target.classList.contains('check-edit-cancel')) {
+    editingCheckIdx = null;
+    renderChecklist();
   } else if (e.target.classList.contains('resched-btn')) {
     const inline = document.getElementById(`resched-inline-${idx}`);
     inline.style.display = inline.style.display === 'none' ? 'flex' : 'none';
@@ -1531,6 +1730,12 @@ checkList.addEventListener('click', (e) => {
     if (!dateInput.value) { statusMsg.textContent = 'Pick a date first.'; return; }
     rescheduleItem(idx, dateInput.value);
   }
+});
+checkList.addEventListener('keydown', (e) => {
+  if (!e.target.classList.contains('check-edit-input')) return;
+  const idx = Number(e.target.id.replace('check-edit-', ''));
+  if (e.key === 'Enter') { e.preventDefault(); saveChecklistEdit(idx); }
+  else if (e.key === 'Escape') { e.preventDefault(); editingCheckIdx = null; renderChecklist(); }
 });
 document.getElementById('addCheckBtn').addEventListener('click', () => {
   const text = checkInput.value.trim();
@@ -1560,6 +1765,7 @@ const settingsPanel = document.getElementById('settingsPanel');
 function openSettingsPanel() {
   editingColors = { ...categoryColors };
   renderColourGrid();
+  resetDeleteRangeUI();
   settingsPanel.style.display = 'block';
   settingsBtn.setAttribute('aria-expanded', 'true');
 }
@@ -1584,6 +1790,108 @@ document.getElementById('settingsSave').addEventListener('click', async () => {
 document.addEventListener('click', (e) => {
   if (settingsPanel.style.display === 'none') return;
   if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) closeSettingsPanel();
+});
+
+/* ---------- Delete past entries (date range) ---------- */
+const deleteRangeFrom = document.getElementById('deleteRangeFrom');
+const deleteRangeTo = document.getElementById('deleteRangeTo');
+const deleteRangeSummary = document.getElementById('deleteRangeSummary');
+const deleteRangeBtn = document.getElementById('deleteRangeBtn');
+const deleteRangeCancelBtn = document.getElementById('deleteRangeCancelBtn');
+let deleteRangeConfirmPending = false;
+
+function datesInRange(fromStr, toStr) {
+  const dates = [];
+  let cur = new Date(fromStr + 'T00:00:00');
+  const end = new Date(toStr + 'T00:00:00');
+  while (cur <= end) {
+    dates.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+function resetDeleteRangeUI() {
+  deleteRangeFrom.value = '';
+  deleteRangeTo.value = '';
+  deleteRangeSummary.textContent = '';
+  deleteRangeConfirmPending = false;
+  deleteRangeCancelBtn.style.display = 'none';
+  deleteRangeBtn.disabled = true;
+  deleteRangeBtn.textContent = 'Delete entries in range';
+}
+
+function updateDeleteRangeSummary() {
+  deleteRangeConfirmPending = false;
+  deleteRangeCancelBtn.style.display = 'none';
+  deleteRangeBtn.textContent = 'Delete entries in range';
+
+  const from = deleteRangeFrom.value;
+  const to = deleteRangeTo.value;
+  if (!from || !to) {
+    deleteRangeSummary.textContent = '';
+    deleteRangeBtn.disabled = true;
+    return;
+  }
+  if (to < from) {
+    deleteRangeSummary.textContent = 'The "To" date must be on or after "From".';
+    deleteRangeBtn.disabled = true;
+    return;
+  }
+  const dates = datesInRange(from, to);
+  const savedCount = dates.filter(d => savedDatesSet.has(d)).length;
+  deleteRangeSummary.textContent = `${dates.length} day${dates.length === 1 ? '' : 's'} selected \u2014 ${savedCount} ${savedCount === 1 ? 'has' : 'have'} a saved plan and would be deleted.`;
+  deleteRangeBtn.disabled = savedCount === 0;
+}
+deleteRangeFrom.addEventListener('change', updateDeleteRangeSummary);
+deleteRangeTo.addEventListener('change', updateDeleteRangeSummary);
+
+deleteRangeCancelBtn.addEventListener('click', () => {
+  deleteRangeConfirmPending = false;
+  deleteRangeCancelBtn.style.display = 'none';
+  updateDeleteRangeSummary();
+});
+
+// Two clicks required: the first arms the button and shows a plain-English
+// count + a Cancel option; the second (on the same, now-armed button)
+// actually deletes. This avoids depending on window.confirm(), which some
+// embedded/sandboxed browser views silently suppress, making the button
+// look unresponsive.
+deleteRangeBtn.addEventListener('click', async () => {
+  const from = deleteRangeFrom.value;
+  const to = deleteRangeTo.value;
+  if (!from || !to || to < from) return;
+  const dates = datesInRange(from, to).filter(d => savedDatesSet.has(d));
+  if (dates.length === 0) return;
+
+  if (!deleteRangeConfirmPending) {
+    deleteRangeConfirmPending = true;
+    deleteRangeBtn.textContent = `Confirm delete of ${dates.length} day${dates.length === 1 ? '' : 's'}?`;
+    deleteRangeCancelBtn.style.display = 'inline-block';
+    return;
+  }
+
+  deleteRangeConfirmPending = false;
+  deleteRangeCancelBtn.style.display = 'none';
+  deleteRangeBtn.disabled = true;
+  deleteRangeBtn.textContent = 'Deleting...';
+  try {
+    for (const d of dates) {
+      await dbDelete(`day:${d}`);
+    }
+    await refreshSavedDays();
+    const { y, m, d } = getParts();
+    const currentDateStr = `${y}-${m}-${d}`;
+    if (dates.includes(currentDateStr)) {
+      await loadDay();
+      attachCurrentDayListener();
+    }
+    statusMsg.textContent = `Deleted ${dates.length} saved day${dates.length === 1 ? '' : 's'}.`;
+  } catch (err) {
+    statusMsg.textContent = 'Could not delete some entries \u2014 please try again.';
+  } finally {
+    updateDeleteRangeSummary();
+  }
 });
 
 const weekdayPicksEl = document.getElementById('weekdayPicks');
@@ -1612,22 +1920,91 @@ CATEGORIES.forEach(c => {
 recurStartSel.value = 19 * 60; // 7:00 PM
 recurEndSel.value = 21 * 60;   // 9:00 PM
 
+let expandedRecurCats = new Set();
+let editingRecurIdx = null;
+
 function renderRecurringList() {
   recurringListEl.innerHTML = '';
+  if (recurringRules.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'recurring-empty';
+    empty.textContent = 'No recurring events yet — add one above.';
+    recurringListEl.appendChild(empty);
+    return;
+  }
+  const grouped = {};
   recurringRules.forEach((rule, idx) => {
-    const li = document.createElement('li');
-    li.className = 'recurring-item';
-    li.innerHTML = `
-      <span class="rec-swatch" style="background:${categoryColor(rule.category)}"></span>
-      <div class="rec-info">
-        ${rule.activity} &middot; ${boundaryLabel(rule.start)} \u2013 ${boundaryLabel(rule.end)}
-        <span class="rec-days">${rule.weekdays.map(d => d.slice(0, 3)).join(', ')}${rule.note ? ' &middot; has note' : ''}</span>
-      </div>
-      <button data-idx="${idx}">Remove</button>
+    const cat = rule.category || 'Other';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push({ rule, idx });
+  });
+  const orderedCats = CATEGORIES.map(c => c.name).filter(name => grouped[name]);
+  Object.keys(grouped).forEach(name => { if (!orderedCats.includes(name)) orderedCats.push(name); });
+
+  orderedCats.forEach(catName => {
+    const items = grouped[catName];
+    const isOpen = expandedRecurCats.has(catName);
+    const groupLi = document.createElement('li');
+    groupLi.className = 'recurring-cat-group';
+    groupLi.innerHTML = `
+      <button type="button" class="recurring-cat-header" data-cat="${catName}" aria-expanded="${isOpen}">
+        <span class="rec-swatch" style="background:${categoryColor(catName)}"></span>
+        <span class="recurring-cat-name">${catName}</span>
+        <span class="recurring-cat-count">${items.length}</span>
+        <span class="chevron">${isOpen ? '\u25be' : '\u25b8'}</span>
+      </button>
+      <ul class="recurring-cat-items" style="display:${isOpen ? 'flex' : 'none'};"></ul>
     `;
-    recurringListEl.appendChild(li);
+    const itemsUl = groupLi.querySelector('.recurring-cat-items');
+    items.forEach(({ rule, idx }) => {
+      const li = document.createElement('li');
+      li.className = 'recurring-item';
+      li.innerHTML = `
+        <div class="rec-info">
+          ${rule.activity} &middot; ${boundaryLabel(rule.start)} \u2013 ${boundaryLabel(rule.end)}
+          <span class="rec-days">${rule.weekdays.map(d => d.slice(0, 3)).join(', ')}${rule.note ? ' &middot; has note' : ''}</span>
+        </div>
+        <div class="rec-actions">
+          <button class="edit-btn" data-idx="${idx}">Edit</button>
+          <button class="remove-btn" data-idx="${idx}">Remove</button>
+        </div>
+      `;
+      itemsUl.appendChild(li);
+    });
+    recurringListEl.appendChild(groupLi);
   });
 }
+
+function beginEditRecur(idx) {
+  const rule = recurringRules[idx];
+  if (!rule) return;
+  editingRecurIdx = idx;
+  weekdayPicksEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = rule.weekdays.includes(cb.value);
+  });
+  recurStartSel.value = rule.start;
+  recurEndSel.value = rule.end;
+  recurCategorySel.value = rule.category;
+  recurActivityInput.value = rule.activity;
+  recurNoteInput.value = rule.note || '';
+  document.getElementById('addRecurBtn').textContent = 'Save changes';
+  document.getElementById('cancelRecurEditBtn').style.display = 'inline-block';
+  document.getElementById('recurError').textContent = '';
+  recurActivityInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function endEditRecur() {
+  editingRecurIdx = null;
+  recurActivityInput.value = '';
+  recurNoteInput.value = '';
+  weekdayPicksEl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+  recurStartSel.value = 19 * 60;
+  recurEndSel.value = 21 * 60;
+  document.getElementById('addRecurBtn').textContent = 'Add';
+  document.getElementById('cancelRecurEditBtn').style.display = 'none';
+  document.getElementById('recurError').textContent = '';
+}
+document.getElementById('cancelRecurEditBtn').addEventListener('click', endEditRecur);
 async function saveRecurringRules() {
   try { await dbSet('recurring-rules', JSON.stringify(recurringRules)); }
   catch (err) { statusMsg.textContent = 'Could not save recurring event — please try again.'; }
@@ -1640,40 +2017,66 @@ async function loadRecurringRules() {
   renderRecurringList();
 }
 document.getElementById('addRecurBtn').addEventListener('click', async () => {
+  const recurError = document.getElementById('recurError');
   const activity = recurActivityInput.value.trim();
   const start = Number(recurStartSel.value);
   const end = Number(recurEndSel.value);
   const category = recurCategorySel.value;
   const note = recurNoteInput.value.trim();
   const weekdays = Array.from(weekdayPicksEl.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-  if (!activity || weekdays.length === 0 || end <= start) return;
-  const newRule = { activity, start, end, category, weekdays, note };
-  recurringRules.push(newRule);
-  recurActivityInput.value = '';
-  recurNoteInput.value = '';
-  weekdayPicksEl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+  if (!activity) { recurError.textContent = 'Give the recurring event an activity name.'; return; }
+  if (weekdays.length === 0) { recurError.textContent = 'Pick at least one day of the week.'; return; }
+  if (end <= start) { recurError.textContent = 'End time must be after start time.'; return; }
+  recurError.textContent = '';
+
+  const ruleData = { activity, start, end, category, weekdays, note };
+  const wasEditing = editingRecurIdx !== null;
+
+  if (wasEditing) {
+    recurringRules[editingRecurIdx] = ruleData;
+  } else {
+    expandedRecurCats.add(category);
+    recurringRules.push(ruleData);
+  }
+  endEditRecur();
   renderRecurringList();
   await saveRecurringRules();
 
-  if (!currentDayIsSaved && newRule.weekdays.includes(weekdayDisplay.textContent)) {
+  if (!wasEditing && !currentDayIsSaved && ruleData.weekdays.includes(weekdayDisplay.textContent)) {
     events.push({
       id: nextId(),
-      start: newRule.start,
-      end: newRule.end,
-      category: newRule.category,
-      activity: newRule.activity,
-      note: newRule.note || ''
+      start: ruleData.start,
+      end: ruleData.end,
+      category: ruleData.category,
+      activity: ruleData.activity,
+      note: ruleData.note || ''
     });
     renderEvents();
-    statusMsg.textContent = `Added "${newRule.activity}" to today's view — save this day to keep it, or change the block to override.`;
+    statusMsg.textContent = `Added "${ruleData.activity}" to today's view — save this day to keep it, or change the block to override.`;
+  } else if (wasEditing) {
+    statusMsg.textContent = `Updated "${ruleData.activity}".`;
   }
 });
 recurringListEl.addEventListener('click', async (e) => {
-  if (e.target.tagName !== 'BUTTON') return;
-  const idx = Number(e.target.dataset.idx);
-  recurringRules.splice(idx, 1);
-  renderRecurringList();
-  await saveRecurringRules();
+  const header = e.target.closest('.recurring-cat-header');
+  if (header) {
+    const cat = header.dataset.cat;
+    if (expandedRecurCats.has(cat)) expandedRecurCats.delete(cat); else expandedRecurCats.add(cat);
+    renderRecurringList();
+    return;
+  }
+  if (e.target.classList.contains('edit-btn')) {
+    beginEditRecur(Number(e.target.dataset.idx));
+    return;
+  }
+  if (e.target.classList.contains('remove-btn')) {
+    const idx = Number(e.target.dataset.idx);
+    if (editingRecurIdx !== null) endEditRecur(); // array indices shift after a removal — safest to drop out of edit mode
+    recurringRules.splice(idx, 1);
+    renderRecurringList();
+    await saveRecurringRules();
+  }
 });
 
 function applyRecurringDefaults(weekday) {
