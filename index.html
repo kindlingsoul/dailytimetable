@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Daily Timetable</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
@@ -955,6 +956,103 @@ button:hover{ opacity:0.85; }
   font-family:'IBM Plex Mono',monospace;
   font-size:10.5px !important;
   margin-top:16px !important;
+}
+
+/* --- Touch devices: hover never fires, so show the delete "x" on
+   event blocks all the time instead of only revealing it on :hover --- */
+@media (hover: none){
+  .event-block .ev-delete{ opacity:0.85; }
+}
+
+/* ============================================================
+   MOBILE LAYOUT — phones and narrow tablets
+   ============================================================ */
+@media (max-width: 640px){
+  body{ padding:16px 8px; }
+
+  .sheet{ padding:18px 14px 28px; }
+
+  .tab{
+    position:static;
+    display:inline-block;
+    margin-bottom:10px;
+    transform:none;
+  }
+
+  header{ align-items:flex-start; }
+
+  h1{ font-size:24px; }
+
+  /* Day/Month/Year + hidden date field: 2-up grid instead of a cramped row */
+  .controls{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    width:100%;
+  }
+
+  .date-display{ font-size:14px; text-align:center; }
+
+  /* Stack To Do above the mini calendar, both full width */
+  .top-grid{ flex-direction:column; }
+  .top-left{ min-width:0; width:100%; }
+  .top-right{ width:100%; }
+  .mini-calendar{ max-width:none; width:100%; }
+  .mini-cal-day{ font-size:14px; }
+
+  /* The desktop version JS-matches checklist height to the mini calendar's
+     height so their bottoms align side-by-side; stacked on mobile that
+     measurement doesn't apply, so let the checklist size itself */
+  .checklist-section{ height:auto !important; max-height:none; }
+  .check-list{ max-height:340px; }
+
+  /* Bigger tap targets on checklist rows */
+  .check-item{ padding:10px 4px; }
+  .check-item input[type="checkbox"]{ width:20px; height:20px; }
+  .check-actions{ flex-basis:100%; justify-content:flex-end; margin-top:4px; }
+  .check-actions button, .recurring-item button{ padding:7px 11px; font-size:12px; }
+
+  /* Event drawer: stack fields instead of a cramped 3-across row */
+  .drawer-row{ flex-direction:column; gap:12px; }
+  .event-drawer .field{ min-width:0; width:100%; }
+  .event-drawer select, .event-drawer input, .event-drawer textarea{ width:100%; }
+
+  /* Recurring event form: stack every field full-width */
+  .recurring-time{ flex-direction:column; align-items:stretch; }
+  .recurring-time .field{ width:100%; }
+  .recurring-note-row{ flex-direction:column; align-items:stretch; }
+  .recurring-form-actions{ justify-content:flex-end; }
+  .weekday-picks label{ font-size:12px; padding:4px 0; }
+  .recurring-cat-header{ padding:11px 10px; }
+  .rec-actions{ flex-wrap:wrap; justify-content:flex-end; }
+
+  /* Settings popover: a fixed, centered panel instead of an absolutely
+     positioned box that can run off the right edge of a narrow screen */
+  .settings-panel{
+    position:fixed;
+    top:auto;
+    bottom:16px;
+    left:50%;
+    right:auto;
+    transform:translateX(-50%);
+    width:calc(100vw - 32px);
+    max-width:360px;
+    max-height:75vh;
+  }
+
+  .colour-grid{ gap:8px; }
+  .colour-row{ flex:1 1 100%; }
+
+  .delete-range-row{ flex-direction:column; }
+
+  /* Timetable grid: narrower hour axis frees up room for the blocks */
+  .calendar-axis{ width:48px; }
+  .axis-label{ font-size:10px; right:6px; }
+  .event-block{ font-size:12px; left:3px; right:3px; }
+
+  .footer-bar{ flex-direction:column; align-items:stretch; }
+  .footer-bar > div{ display:flex; gap:8px; }
+  .footer-bar button{ flex:1; }
 }
 
 </style>
@@ -2216,6 +2314,7 @@ function syncChecklistHeight() {
   const miniCal = document.getElementById('miniCalendar');
   const section = document.querySelector('.checklist-section');
   if (!miniCal || !section) return;
+  if (window.innerWidth <= 640) { section.style.height = 'auto'; return; } // stacked layout — no side-by-side height to match
   section.style.height = 'auto'; // reset so we measure the section's true top, unaffected by any previous forced height
   const miniCalBottom = miniCal.getBoundingClientRect().bottom;
   const sectionTop = section.getBoundingClientRect().top;
