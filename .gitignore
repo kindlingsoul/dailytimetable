@@ -1,3 +1,0 @@
-# Keeps your Firebase keys out of a public GitHub repo.
-# Remove this line if your repo is private and you don't mind it being tracked.
-config.js
