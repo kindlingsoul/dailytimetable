@@ -81,6 +81,17 @@ h1{
   margin-top:4px;
 }
 
+.day-weather-holiday{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  color:var(--ink);
+  margin:6px 0 0;
+}
+.day-weather-holiday .holiday-flag{
+  color:var(--stamp);
+  font-weight:600;
+}
+
 .top-grid{
   display:flex;
   gap:24px;
@@ -1278,6 +1289,26 @@ button:hover{ opacity:0.85; }
 .week-day-header.is-today .week-day-name{ color:#e4efec; }
 .week-day-header.is-locked::after{ content:" \1F512"; font-size:10px; }
 
+.week-day-header .week-day-weather{
+  display:block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  font-weight:500;
+  color:var(--muted);
+  margin-top:2px;
+}
+.week-day-header.is-today .week-day-weather{ color:#e4efec; }
+.week-day-header .week-day-holiday{
+  display:block;
+  font-size:9.5px;
+  font-weight:700;
+  color:var(--stamp);
+  line-height:1.25;
+  margin-top:2px;
+  white-space:normal;
+  overflow-wrap:break-word;
+}
+
 .week-axis{ position:relative; }
 .week-axis-label{
   position:absolute;
@@ -1487,6 +1518,7 @@ button:hover{ opacity:0.85; }
     <div>
       <h1 id="mainTitle">Daily Timetable</h1>
       <div class="subtitle">6:00 AM &rarr; 12:00 AM</div>
+      <p class="day-weather-holiday" id="dayWeatherHoliday" style="display:none;"></p>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
       <button type="button" id="signOutBtn" class="icon-btn" title="Sign out" style="width:auto; padding:0 10px; font-size:11px; font-family:'IBM Plex Mono',monospace;">Sign out</button>
@@ -1499,6 +1531,9 @@ button:hover{ opacity:0.85; }
             <h3>Settings</h3>
             <button type="button" class="settings-menu-row" id="openCategoryMenuBtn">
               <span>Category</span><span class="chevron">&#8250;</span>
+            </button>
+            <button type="button" class="settings-menu-row" id="openLocationMenuBtn">
+              <span>Location</span><span class="chevron">&#8250;</span>
             </button>
             <hr class="settings-divider">
             <h3>Delete past entries</h3>
@@ -1517,6 +1552,20 @@ button:hover{ opacity:0.85; }
             <div class="settings-actions">
               <button class="secondary" id="deleteRangeCancelBtn" style="display:none;">Cancel</button>
               <button class="stamp" id="deleteRangeBtn" disabled>Delete entries in range</button>
+            </div>
+          </div>
+
+          <!-- LOCATION -->
+          <div class="settings-view" id="settingsLocationView" style="display:none;">
+            <button type="button" class="settings-back" id="backFromLocationBtn">&#8249; Settings</button>
+            <h3>Location</h3>
+            <p class="settings-hint">Drives the weather forecast and public holidays shown in the planner. Defaults to Singapore.</p>
+            <div class="field" style="margin-bottom:10px;">
+              <label for="locationSelect">Country</label>
+              <select id="locationSelect"></select>
+            </div>
+            <div class="settings-actions">
+              <button class="stamp" id="locationSaveBtn">Save</button>
             </div>
           </div>
 
@@ -2026,6 +2075,143 @@ function hexToRgbTriplet(hex) {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
   if (!m) return '168,64,47';
   return `${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)}`;
+}
+
+/* ============================================================
+   LOCATION, WEATHER & PUBLIC HOLIDAYS
+   Weather: Open-Meteo (no API key needed, https://open-meteo.com)
+   Holidays: Nager.Date (no API key needed, https://date.nager.at)
+   Both are free public APIs callable straight from the browser — no
+   backend needed, which matters since this is a static GitHub Pages site.
+   ============================================================ */
+const COUNTRY_LOCATIONS = [
+  { code: 'SG', name: 'Singapore', lat: 1.3521, lon: 103.8198 },
+  { code: 'MY', name: 'Malaysia', lat: 3.1390, lon: 101.6869 },
+  { code: 'ID', name: 'Indonesia', lat: -6.2088, lon: 106.8456 },
+  { code: 'TH', name: 'Thailand', lat: 13.7563, lon: 100.5018 },
+  { code: 'VN', name: 'Vietnam', lat: 21.0278, lon: 105.8342 },
+  { code: 'PH', name: 'Philippines', lat: 14.5995, lon: 120.9842 },
+  { code: 'JP', name: 'Japan', lat: 35.6762, lon: 139.6503 },
+  { code: 'KR', name: 'South Korea', lat: 37.5665, lon: 126.9780 },
+  { code: 'CN', name: 'China', lat: 39.9042, lon: 116.4074 },
+  { code: 'HK', name: 'Hong Kong', lat: 22.3193, lon: 114.1694 },
+  { code: 'TW', name: 'Taiwan', lat: 25.0330, lon: 121.5654 },
+  { code: 'IN', name: 'India', lat: 28.6139, lon: 77.2090 },
+  { code: 'AU', name: 'Australia', lat: -35.2809, lon: 149.1300 },
+  { code: 'NZ', name: 'New Zealand', lat: -41.2865, lon: 174.7762 },
+  { code: 'GB', name: 'United Kingdom', lat: 51.5072, lon: -0.1276 },
+  { code: 'IE', name: 'Ireland', lat: 53.3498, lon: -6.2603 },
+  { code: 'FR', name: 'France', lat: 48.8566, lon: 2.3522 },
+  { code: 'DE', name: 'Germany', lat: 52.5200, lon: 13.4050 },
+  { code: 'ES', name: 'Spain', lat: 40.4168, lon: -3.7038 },
+  { code: 'PT', name: 'Portugal', lat: 38.7223, lon: -9.1393 },
+  { code: 'IT', name: 'Italy', lat: 41.9028, lon: 12.4964 },
+  { code: 'NL', name: 'Netherlands', lat: 52.3676, lon: 4.9041 },
+  { code: 'BE', name: 'Belgium', lat: 50.8503, lon: 4.3517 },
+  { code: 'CH', name: 'Switzerland', lat: 46.9480, lon: 7.4474 },
+  { code: 'AT', name: 'Austria', lat: 48.2082, lon: 16.3738 },
+  { code: 'SE', name: 'Sweden', lat: 59.3293, lon: 18.0686 },
+  { code: 'NO', name: 'Norway', lat: 59.9139, lon: 10.7522 },
+  { code: 'DK', name: 'Denmark', lat: 55.6761, lon: 12.5683 },
+  { code: 'FI', name: 'Finland', lat: 60.1699, lon: 24.9384 },
+  { code: 'PL', name: 'Poland', lat: 52.2297, lon: 21.0122 },
+  { code: 'CZ', name: 'Czechia', lat: 50.0755, lon: 14.4378 },
+  { code: 'GR', name: 'Greece', lat: 37.9838, lon: 23.7275 },
+  { code: 'TR', name: 'Turkey', lat: 39.9334, lon: 32.8597 },
+  { code: 'AE', name: 'United Arab Emirates', lat: 24.4539, lon: 54.3773 },
+  { code: 'SA', name: 'Saudi Arabia', lat: 24.7136, lon: 46.6753 },
+  { code: 'IL', name: 'Israel', lat: 31.7683, lon: 35.2137 },
+  { code: 'EG', name: 'Egypt', lat: 30.0444, lon: 31.2357 },
+  { code: 'ZA', name: 'South Africa', lat: -25.7479, lon: 28.2293 },
+  { code: 'NG', name: 'Nigeria', lat: 9.0765, lon: 7.3986 },
+  { code: 'KE', name: 'Kenya', lat: -1.2921, lon: 36.8219 },
+  { code: 'US', name: 'United States', lat: 38.9072, lon: -77.0369 },
+  { code: 'CA', name: 'Canada', lat: 45.4215, lon: -75.6972 },
+  { code: 'MX', name: 'Mexico', lat: 19.4326, lon: -99.1332 },
+  { code: 'BR', name: 'Brazil', lat: -15.8267, lon: -47.9218 },
+  { code: 'AR', name: 'Argentina', lat: -34.6037, lon: -58.3816 },
+  { code: 'CL', name: 'Chile', lat: -33.4489, lon: -70.6693 },
+  { code: 'CO', name: 'Colombia', lat: 4.7110, lon: -74.0721 },
+  { code: 'PE', name: 'Peru', lat: -12.0464, lon: -77.0428 }
+];
+
+const DEFAULT_LOCATION = COUNTRY_LOCATIONS[0]; // Singapore
+let appLocation = DEFAULT_LOCATION;
+
+async function loadLocation() {
+  try {
+    const result = await dbGet('location');
+    appLocation = (result && result.value) ? JSON.parse(result.value) : DEFAULT_LOCATION;
+  } catch (err) { appLocation = DEFAULT_LOCATION; }
+}
+async function saveLocation() {
+  try { await dbSet('location', JSON.stringify(appLocation)); }
+  catch (err) { statusMsg.textContent = 'Could not save location — please try again.'; }
+}
+
+// WMO weather codes, as used by Open-Meteo — https://open-meteo.com/en/docs
+const WEATHER_ICONS = {
+  0: '\u2600\uFE0F', 1: '\uD83C\uDF24\uFE0F', 2: '\u26C5', 3: '\u2601\uFE0F',
+  45: '\uD83C\uDF2B\uFE0F', 48: '\uD83C\uDF2B\uFE0F',
+  51: '\uD83C\uDF26\uFE0F', 53: '\uD83C\uDF26\uFE0F', 55: '\uD83C\uDF26\uFE0F',
+  56: '\uD83C\uDF27\uFE0F', 57: '\uD83C\uDF27\uFE0F',
+  61: '\uD83C\uDF27\uFE0F', 63: '\uD83C\uDF27\uFE0F', 65: '\uD83C\uDF27\uFE0F',
+  66: '\uD83C\uDF27\uFE0F', 67: '\uD83C\uDF27\uFE0F',
+  71: '\u2744\uFE0F', 73: '\u2744\uFE0F', 75: '\u2744\uFE0F', 77: '\u2744\uFE0F',
+  80: '\uD83C\uDF26\uFE0F', 81: '\uD83C\uDF27\uFE0F', 82: '\u26C8\uFE0F',
+  85: '\uD83C\uDF28\uFE0F', 86: '\uD83C\uDF28\uFE0F',
+  95: '\u26C8\uFE0F', 96: '\u26C8\uFE0F', 99: '\u26C8\uFE0F'
+};
+function weatherIconFor(code) { return WEATHER_ICONS[code] || '\uD83C\uDF21\uFE0F'; }
+
+// Cached in memory only (not persisted) — cheap to refetch each session,
+// and weather/holiday data goes stale anyway.
+let weatherByDate = {};   // 'YYYY-MM-DD' -> { code, max, min }
+let weatherFetchedAt = 0;
+let holidaysByYear = {};  // '2026' -> { 'YYYY-MM-DD': 'Holiday name' }
+
+async function fetchWeather() {
+  if (weatherFetchedAt && (Date.now() - weatherFetchedAt) < 30 * 60 * 1000) return weatherByDate; // reuse for 30 min
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${appLocation.lat}&longitude=${appLocation.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=16`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('weather request failed');
+    const data = await resp.json();
+    const byDate = {};
+    (data.daily && data.daily.time || []).forEach((dateStr, i) => {
+      byDate[dateStr] = {
+        code: data.daily.weather_code[i],
+        max: Math.round(data.daily.temperature_2m_max[i]),
+        min: Math.round(data.daily.temperature_2m_min[i])
+      };
+    });
+    weatherByDate = byDate;
+    weatherFetchedAt = Date.now();
+  } catch (err) {
+    // Offline, or the API hiccuped — just show nothing rather than breaking the page.
+    weatherByDate = {};
+    weatherFetchedAt = Date.now(); // still avoid hammering it again immediately
+  }
+  return weatherByDate;
+}
+
+async function fetchHolidaysForYear(year) {
+  if (holidaysByYear[year]) return holidaysByYear[year];
+  try {
+    const resp = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${appLocation.code}`);
+    if (!resp.ok) throw new Error('holiday request failed');
+    const data = await resp.json();
+    const map = {};
+    (data || []).forEach(h => { map[h.date] = h.localName || h.name; });
+    holidaysByYear[year] = map;
+  } catch (err) {
+    holidaysByYear[year] = {}; // country not covered, or offline — degrade quietly
+  }
+  return holidaysByYear[year];
+}
+function holidayNameForDate(dateStr) {
+  const year = dateStr.slice(0, 4);
+  return (holidaysByYear[year] || {})[dateStr] || null;
 }
 
 /* ---------- DOM refs ---------- */
@@ -2557,7 +2743,7 @@ wireToggle('recurringToggle', 'recurringBody');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 
-const SETTINGS_VIEW_IDS = ['settingsMainView', 'settingsCategoryMenuView', 'settingsCategoryColoursView', 'settingsCategoryFormView'];
+const SETTINGS_VIEW_IDS = ['settingsMainView', 'settingsLocationView', 'settingsCategoryMenuView', 'settingsCategoryColoursView', 'settingsCategoryFormView'];
 function showSettingsView(viewId) {
   SETTINGS_VIEW_IDS.forEach(id => {
     document.getElementById(id).style.display = (id === viewId) ? 'block' : 'none';
@@ -2594,6 +2780,36 @@ document.addEventListener('click', (e) => {
 
 /* ---- Settings navigation: Settings -> Category -> (Category colours | Create new category) ---- */
 document.getElementById('openCategoryMenuBtn').addEventListener('click', () => showSettingsView('settingsCategoryMenuView'));
+
+/* ---- Location settings ---- */
+const locationSelect = document.getElementById('locationSelect');
+COUNTRY_LOCATIONS.forEach(loc => {
+  const opt = document.createElement('option');
+  opt.value = loc.code;
+  opt.textContent = loc.name;
+  locationSelect.appendChild(opt);
+});
+document.getElementById('openLocationMenuBtn').addEventListener('click', () => {
+  locationSelect.value = appLocation.code;
+  showSettingsView('settingsLocationView');
+});
+document.getElementById('backFromLocationBtn').addEventListener('click', () => showSettingsView('settingsMainView'));
+document.getElementById('locationSaveBtn').addEventListener('click', async () => {
+  const chosen = COUNTRY_LOCATIONS.find(l => l.code === locationSelect.value);
+  if (!chosen) return;
+  appLocation = chosen;
+  await saveLocation();
+  // Cached data was fetched for the old location — throw it out so the next
+  // lookup goes out for the new one instead of showing stale weather/holidays.
+  weatherByDate = {};
+  weatherFetchedAt = 0;
+  holidaysByYear = {};
+  statusMsg.textContent = `Location set to ${chosen.name}.`;
+  showSettingsView('settingsMainView');
+  updateDayWeatherHoliday();
+  if (document.getElementById('weekViewSection').style.display !== 'none') renderWeekView();
+});
+
 document.getElementById('backFromCategoryMenuBtn').addEventListener('click', () => showSettingsView('settingsMainView'));
 document.getElementById('openCategoryColoursBtn').addEventListener('click', () => {
   openCategoryKebabIdx = null;
@@ -3082,6 +3298,24 @@ function updateDayLockBanner() {
   }
 }
 
+// Shows the public holiday (if any) and weather forecast (if the date falls
+// within the ~16-day window Open-Meteo can forecast) for the day on screen.
+async function updateDayWeatherHoliday() {
+  const dateStr = currentDateStr();
+  const year = dateStr.slice(0, 4);
+  const [holidays, weather] = await Promise.all([fetchHolidaysForYear(year), fetchWeather()]);
+  if (currentDateStr() !== dateStr) return; // the person navigated to a different day while this was loading
+  const el = document.getElementById('dayWeatherHoliday');
+  const holidayName = holidays[dateStr];
+  const w = weather[dateStr];
+  const parts = [];
+  if (holidayName) parts.push(`<span class="holiday-flag">${escapeAttr(holidayName)}</span>`);
+  if (w) parts.push(`${weatherIconFor(w.code)} ${w.max}\u00B0 / ${w.min}\u00B0 in ${appLocation.name}`);
+  if (parts.length === 0) { el.style.display = 'none'; return; }
+  el.innerHTML = parts.join(' &nbsp;&middot;&nbsp; ');
+  el.style.display = 'block';
+}
+
 async function loadDay() {
   updateDateDisplay();
   statusMsg.textContent = 'Loading...';
@@ -3091,6 +3325,7 @@ async function loadDay() {
   currentDayLocked = !!lockRange;
   currentDayLockLabel = lockRange ? lockRange.label : '';
   updateDayLockBanner();
+  updateDayWeatherHoliday(); // fire-and-forget — a network fetch shouldn't block the rest of the day loading
   try {
     const result = await dbGet(key);
     if (result && result.value) {
@@ -3458,6 +3693,9 @@ async function renderWeekView() {
   const lastLabel = `${dates[6].getDate()} ${monthNames[dates[6].getMonth()].slice(0, 3)} ${dates[6].getFullYear()}`;
   document.getElementById('weekRangeLabel').textContent = `${firstLabel} \u2013 ${lastLabel}`;
 
+  const weekYears = [...new Set(currentWeekDates.map(d => d.slice(0, 4)))];
+  const [weekWeather] = await Promise.all([fetchWeather(), ...weekYears.map(y => fetchHolidaysForYear(y))]);
+
   renderWeekBanners();
 
   const grid = document.getElementById('weekGrid');
@@ -3476,7 +3714,12 @@ async function renderWeekView() {
     if (dateStr === todayStr) header.classList.add('is-today');
     if (getLockedRangeForDate(dateStr)) header.classList.add('is-locked');
     header.dataset.date = dateStr;
-    header.innerHTML = `<span class="week-day-name">${orderedWeekdays[i].slice(0, 3)}</span>${dates[i].getDate()}`;
+    const w = weekWeather[dateStr];
+    const holidayName = holidayNameForDate(dateStr);
+    let extra = '';
+    if (w) extra += `<span class="week-day-weather">${weatherIconFor(w.code)} ${w.max}\u00B0</span>`;
+    if (holidayName) extra += `<span class="week-day-holiday" title="${escapeAttr(holidayName)}">${escapeAttr(holidayName)}</span>`;
+    header.innerHTML = `<span class="week-day-name">${orderedWeekdays[i].slice(0, 3)}</span>${dates[i].getDate()}${extra}`;
     grid.appendChild(header);
   });
 
@@ -3510,6 +3753,13 @@ async function renderWeekView() {
     const result = dayResults[i];
     if (result && result.value) {
       try { dayEvents = JSON.parse(result.value).events || []; } catch (err) { dayEvents = []; }
+    } else {
+      // No saved plan for this day yet — show recurring defaults, same as
+      // the daily planner does until the day gets its own saved plan.
+      const weekdayName = orderedWeekdays[i];
+      dayEvents = recurringRules
+        .filter(rule => rule.weekdays.includes(weekdayName))
+        .map(rule => ({ start: rule.start, end: rule.end, category: rule.category, activity: rule.activity, note: rule.note || '' }));
     }
     dayEvents.forEach(ev => {
       const block = document.createElement('div');
@@ -3716,6 +3966,7 @@ async function init() {
   renderCategorySelectOptions();
   await loadRecurringRules();
   await loadBlockedRanges();
+  await loadLocation();
   await refreshSavedDays();
   await loadDay();
 }
