@@ -349,7 +349,13 @@ select:focus, input:focus, textarea:focus{
   cursor:grab;
   box-shadow:0 1px 2px rgba(0,0,0,0.18);
   user-select:none;
-  touch-action:none;
+  touch-action:pan-y;
+  transition:transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.event-block.touch-armed{
+  transform:scale(1.03);
+  box-shadow:0 4px 10px rgba(0,0,0,0.3);
 }
 
 .event-block:active{
@@ -1611,7 +1617,27 @@ calendarGrid.addEventListener('click', (e) => {
 });
 
 /* ---------- Dragging & resizing existing blocks ---------- */
-let dragState = null; // { id, mode: 'move'|'resize', startY, origStart, origEnd }
+// On touch, a quick swipe should scroll the page like normal; only a
+// brief hold-still on a block should arm dragging/resizing. Mouse users
+// aren't affected by this at all — there's no scroll gesture to confuse
+// a mouse-drag with, so mouse dragging still starts instantly.
+const TOUCH_HOLD_MS = 400;        // how long a touch must hold still before drag/resize arms — raise (e.g. 600–800) if you still get accidental drags, lower if it feels sluggish
+const TOUCH_MOVE_CANCEL_PX = 10;  // finger movement past this, before the hold completes, is treated as a scroll swipe and cancels the hold
+
+let dragState = null;   // { id, mode: 'move'|'resize', startY, origStart, origEnd, moved }
+let pendingTouch = null; // { id, mode, target, blockEl, pointerId, startX, startY, origStart, origEnd, timer }
+
+function clearPendingTouch() {
+  if (pendingTouch) {
+    clearTimeout(pendingTouch.timer);
+    pendingTouch = null;
+  }
+}
+
+function endDragVisuals(id) {
+  const blockEl = eventsLayer.querySelector(`.event-block[data-id="${id}"]`);
+  if (blockEl) blockEl.classList.remove('touch-armed');
+}
 
 eventsLayer.addEventListener('pointerdown', (e) => {
   const id = e.target.dataset.id;
@@ -1621,12 +1647,45 @@ eventsLayer.addEventListener('pointerdown', (e) => {
 
   if (e.target.classList.contains('ev-delete')) return; // handled by its own click
   const mode = e.target.classList.contains('resize-handle') ? 'resize' : 'move';
-  dragState = { id, mode, startY: e.clientY, origStart: ev.start, origEnd: ev.end, moved: false };
-  e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+
+  if (e.pointerType === 'mouse') {
+    dragState = { id, mode, startY: e.clientY, origStart: ev.start, origEnd: ev.end, moved: false };
+    e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+    return;
+  }
+
+  // Touch or pen: arm the drag only after a brief hold-still, so a normal
+  // scroll swipe starting on a block isn't mistaken for a drag.
+  clearPendingTouch();
+  const blockEl = e.target.closest('.event-block');
+  const target = e.target;
+  const pointerId = e.pointerId;
+  pendingTouch = {
+    id, mode, target, blockEl, pointerId,
+    startX: e.clientX, startY: e.clientY,
+    origStart: ev.start, origEnd: ev.end,
+    timer: setTimeout(() => {
+      if (!pendingTouch) return;
+      dragState = { id: pendingTouch.id, mode: pendingTouch.mode, startY: pendingTouch.startY, origStart: pendingTouch.origStart, origEnd: pendingTouch.origEnd, moved: false };
+      target.setPointerCapture && target.setPointerCapture(pointerId);
+      if (blockEl) blockEl.classList.add('touch-armed');
+      if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) {} } // small buzz confirming the hold registered, where supported
+      pendingTouch = null;
+    }, TOUCH_HOLD_MS)
+  };
 });
 
 document.addEventListener('pointermove', (e) => {
+  if (pendingTouch && e.pointerId === pendingTouch.pointerId) {
+    const dx = e.clientX - pendingTouch.startX;
+    const dy = e.clientY - pendingTouch.startY;
+    if (Math.sqrt(dx * dx + dy * dy) > TOUCH_MOVE_CANCEL_PX) {
+      clearPendingTouch(); // moved before the hold completed — let the browser scroll instead
+    }
+    return;
+  }
   if (!dragState) return;
+  e.preventDefault(); // block scrolling for the rest of this gesture now that a drag is actually underway
   const deltaY = e.clientY - dragState.startY;
   if (Math.abs(deltaY) > 3) dragState.moved = true;
   const deltaMin = Math.round(deltaY / SLOT_H) * SLOT_MIN;
@@ -1645,15 +1704,21 @@ document.addEventListener('pointermove', (e) => {
     ev.end = newEnd;
   }
   renderEvents();
-});
+}, { passive: false });
 
-document.addEventListener('pointerup', () => {
-  if (dragState && dragState.moved) {
-    suppressGridClick = true;
-    scheduleAutoSave();
+function finishDrag() {
+  clearPendingTouch();
+  if (dragState) {
+    if (dragState.moved) {
+      suppressGridClick = true;
+      scheduleAutoSave();
+    }
+    endDragVisuals(dragState.id);
   }
   dragState = null;
-});
+}
+document.addEventListener('pointerup', finishDrag);
+document.addEventListener('pointercancel', finishDrag);
 
 eventsLayer.addEventListener('click', (e) => {
   if (e.target.classList.contains('ev-delete')) {
