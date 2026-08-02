@@ -1250,6 +1250,26 @@ button:hover{ opacity:0.85; }
   margin-bottom:20px;
 }
 
+/* Zoom toolbar — desktop has enough width to see the whole week already,
+   so this only ever appears on mobile (see the mobile media query below). */
+.week-zoom-toolbar{ display:none; }
+.week-zoom-fit-btn{
+  background:none;
+  border:1px solid var(--line);
+  color:var(--ink);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  padding:3px 10px;
+  border-radius:3px;
+  cursor:pointer;
+}
+.week-zoom-fit-btn:hover{ border-color:var(--accent); background:var(--accent-soft); }
+
+/* The element we actually scale for pinch/button zoom. Scaling this instead
+   of .week-grid-scroll keeps the banners row and the grid scaling together
+   in lockstep, so the blocked-range bars stay lined up with their days. */
+.week-zoom-content{ transform-origin:top left; }
+
 .week-grid{
   display:grid;
   grid-template-columns:56px repeat(7, minmax(72px, 1fr));
@@ -1493,6 +1513,21 @@ button:hover{ opacity:0.85; }
      a short nested box — horizontal scroll (for the 7 narrow columns) stays. */
   .week-grid-scroll{ max-height:none; overflow-y:visible; }
   .week-axis-corner, .week-day-header{ position:static; }
+
+  /* Zoom toolbar: buttons to shrink the week down to fit the screen (fixes
+     the 600px-wide grid getting cut off on a ~360-400px phone) or enlarge
+     it back up for reading. Pinch with two fingers does the same thing. */
+  .week-zoom-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  /* pan-x pan-y (without pinch-zoom) tells the browser to leave two-finger
+     pinch alone so our own touch handlers can drive the zoom instead of the
+     whole page jumping to the browser's native viewport zoom. */
+  .week-grid-scroll{ touch-action:pan-x pan-y; }
 
   .block-range-form{ padding:16px; max-width:none; }
 }
@@ -1789,9 +1824,17 @@ button:hover{ opacity:0.85; }
 
     <p class="calendar-hint">Click a day to open it in the daily planner. Blocked-out ranges show as a banner above the week — click one to edit or remove it.</p>
 
-    <div class="week-grid-scroll">
-      <div id="weekBanners"></div>
-      <div class="week-grid" id="weekGrid"></div>
+    <div class="week-zoom-toolbar" id="weekZoomToolbar">
+      <button type="button" class="mini-cal-nav" id="weekZoomOutBtn" aria-label="Zoom out">&#8722;</button>
+      <button type="button" class="week-zoom-fit-btn" id="weekZoomFitBtn">Fit week</button>
+      <button type="button" class="mini-cal-nav" id="weekZoomInBtn" aria-label="Zoom in">+</button>
+    </div>
+
+    <div class="week-grid-scroll" id="weekGridScroll">
+      <div class="week-zoom-content" id="weekZoomContent">
+        <div id="weekBanners"></div>
+        <div class="week-grid" id="weekGrid"></div>
+      </div>
     </div>
 
   <div class="modal-backdrop" id="blockRangeBackdrop" style="display:none;">
@@ -3640,6 +3683,100 @@ const WEEK_TOTAL_H = ((DAY_END - DAY_START) / SLOT_MIN) * WEEK_SLOT_H;
 const WEEK_VPAD = 10; // breathing room so the 6 AM / midnight labels aren't clipped by the sticky header — same idea as the day view's VPAD
 function weekPxFromMinutes(m) { return WEEK_VPAD + ((m - DAY_START) / SLOT_MIN) * WEEK_SLOT_H; }
 
+/* ---- Mobile week-view zoom (buttons + pinch) ----
+   The grid is a fixed 600px+ wide layout (56px hour axis + 7 day columns),
+   which is wider than most phones — that's the "cut off" problem. Rather
+   than reflowing the grid itself, we scale the whole banners+grid block
+   down with a CSS transform so the entire week can be seen at once, and
+   let the person zoom back in with buttons or a two-finger pinch when they
+   want to read the detail. Desktop has room already, so this is a no-op
+   there (applyWeekZoom bails out immediately on non-mobile widths). */
+const WEEK_ZOOM_MIN = 0.35;
+const WEEK_ZOOM_MAX = 1.5;
+const WEEK_ZOOM_STEP = 0.15;
+let weekZoomScale = 1;
+let weekZoomManual = false; // true once the person has zoomed by hand — stop auto-fitting after that
+
+function isMobileWeekView() { return window.matchMedia('(max-width: 640px)').matches; }
+
+function weekZoomFitScale() {
+  const content = document.getElementById('weekZoomContent');
+  const scrollEl = document.getElementById('weekGridScroll');
+  if (!content || !scrollEl) return 1;
+  const natural = content.scrollWidth;
+  const available = scrollEl.clientWidth;
+  if (!natural || !available) return 1;
+  return Math.max(WEEK_ZOOM_MIN, Math.min(1, available / natural));
+}
+
+function applyWeekZoom() {
+  const content = document.getElementById('weekZoomContent');
+  const scrollEl = document.getElementById('weekGridScroll');
+  if (!content || !scrollEl) return;
+  if (!isMobileWeekView()) {
+    // Desktop: leave the grid at its natural size, no scaling machinery.
+    content.style.transform = 'none';
+    scrollEl.style.height = '';
+    return;
+  }
+  if (!weekZoomManual) weekZoomScale = weekZoomFitScale(); // default to "whole week visible" until the person zooms by hand
+  const naturalH = content.scrollHeight;
+  content.style.transform = `scale(${weekZoomScale})`;
+  scrollEl.style.height = Math.ceil(naturalH * weekZoomScale) + 'px';
+}
+
+document.getElementById('weekZoomOutBtn').addEventListener('click', () => {
+  weekZoomManual = true;
+  weekZoomScale = Math.max(WEEK_ZOOM_MIN, +(weekZoomScale - WEEK_ZOOM_STEP).toFixed(2));
+  applyWeekZoom();
+});
+document.getElementById('weekZoomInBtn').addEventListener('click', () => {
+  weekZoomManual = true;
+  weekZoomScale = Math.min(WEEK_ZOOM_MAX, +(weekZoomScale + WEEK_ZOOM_STEP).toFixed(2));
+  applyWeekZoom();
+});
+document.getElementById('weekZoomFitBtn').addEventListener('click', () => {
+  weekZoomManual = false; // hand control back to auto-fit
+  applyWeekZoom();
+});
+
+// Two-finger pinch over the week grid — same effect as the zoom buttons.
+(function setupWeekPinchZoom() {
+  const scrollEl = document.getElementById('weekGridScroll');
+  if (!scrollEl) return;
+  let pinchStartDist = null;
+  let pinchStartScale = 1;
+  function touchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+  scrollEl.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2 && isMobileWeekView()) {
+      pinchStartDist = touchDist(e.touches);
+      pinchStartScale = weekZoomScale;
+    }
+  }, { passive: true });
+  scrollEl.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinchStartDist) {
+      e.preventDefault(); // stop the browser's native page-zoom from also kicking in
+      const ratio = touchDist(e.touches) / pinchStartDist;
+      weekZoomManual = true;
+      weekZoomScale = Math.max(WEEK_ZOOM_MIN, Math.min(WEEK_ZOOM_MAX, +(pinchStartScale * ratio).toFixed(2)));
+      applyWeekZoom();
+    }
+  }, { passive: false });
+  scrollEl.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinchStartDist = null;
+  }, { passive: true });
+})();
+
+// Orientation flips / on-screen keyboard changes shift the available width —
+// re-fit automatically as long as the person hasn't zoomed by hand.
+window.addEventListener('resize', () => {
+  if (!weekZoomManual && document.getElementById('weekViewSection').style.display !== 'none') applyWeekZoom();
+});
+
 const expandTimetableBtn = document.getElementById('expandTimetableBtn');
 expandTimetableBtn.addEventListener('click', () => {
   const expanded = calendarWrap.classList.toggle('expanded');
@@ -3649,6 +3786,7 @@ expandTimetableBtn.addEventListener('click', () => {
 document.getElementById('weekViewBtn').addEventListener('click', async () => {
   await flushAutoSaveIfPending();
   weekViewAnchorDate = new Date(calendarDate.value + 'T00:00:00');
+  weekZoomManual = false; // reopen fresh, at "whole week visible" zoom
   setView('week');
   await renderWeekView();
 });
@@ -3775,6 +3913,7 @@ async function renderWeekView() {
     grid.appendChild(col);
   });
   if (weekRangePicker.style.display !== 'none') renderWeekPickerGrid();
+  applyWeekZoom();
 }
 
 /* ---- Blocked-range banners (shown above the week grid) ---- */
