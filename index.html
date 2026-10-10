@@ -1772,6 +1772,7 @@ button:hover{ opacity:0.85; }
   </div>
 
     <div class="event-drawer" id="eventDrawer">
+    <p class="repeat-label" id="drawerModeLabel" style="display:none; color:var(--accent);">Editing recurring event</p>
     <div class="drawer-row">
       <div class="field">
         <label for="drawerStart">Start</label>
@@ -1842,7 +1843,7 @@ button:hover{ opacity:0.85; }
       <span class="chevron" id="recurringChevron">&#9656;</span>
     </button>
     <div class="recurring-body" id="recurringBody" style="display:none;">
-      <div class="recurring-form">
+      <div class="recurring-form" style="display:none;">
         <div class="weekday-picks" id="weekdayPicks"></div>
         <div class="recurring-time">
           <div class="field">
@@ -2425,9 +2426,16 @@ function prettyDate(str) {
 }
 
 // Last day of "repeat for N units", counted from the day on screen.
+function repeatBaseStr() {
+  if (editingRecurIdx !== null) {
+    const r = recurringRules[editingRecurIdx];
+    return (r && r.from) || currentDateStr();
+  }
+  return currentDateStr();
+}
 function repeatEndDate(n, unit) {
   if (unit === 'forever') return null;
-  const [y, m, d] = currentDateStr().split('-').map(Number);
+  const [y, m, d] = repeatBaseStr().split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   if (unit === 'days') dt.setDate(dt.getDate() + n);
   if (unit === 'weeks') dt.setDate(dt.getDate() + n * 7);
@@ -2461,7 +2469,7 @@ function updateRepeatUI() {
   repeatNum.style.display = unit === 'forever' ? 'none' : 'block';
   repeatNum2.style.display = repeatUnit2.value === 'forever' ? 'none' : 'block';
 
-  const startText = prettyDate(currentDateStr());
+  const startText = prettyDate(repeatBaseStr());
   const endText = (n, u) => {
     if (u === 'forever') return 'no end date';
     if (!(n >= 1)) return 'enter a number of 1 or more';
@@ -2596,12 +2604,16 @@ function openDrawer(ev, anchorY) {
 function closeDrawer() {
   eventDrawer.style.display = 'none';
   editingId = null;
+  editingRecurIdx = null;
+  drawerRepeatToggle.style.display = '';
+  document.getElementById('drawerModeLabel').style.display = 'none';
 }
 
 document.getElementById('drawerCancel').addEventListener('click', closeDrawer);
 
 document.getElementById('drawerSave').addEventListener('click', async () => {
-  if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; closeDrawer(); return; }
+  const editingRule = editingRecurIdx !== null;
+  if (!editingRule && currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; closeDrawer(); return; }
   const start = Number(drawerStart.value);
   const end = Number(drawerEnd.value);
   if (end <= start) { drawerError.textContent = 'End time must be after start time.'; positionDrawer(); return; }
@@ -2610,12 +2622,26 @@ document.getElementById('drawerSave').addEventListener('click', async () => {
   const note = drawerNote.value;
 
   let newRule = null;
-  if (drawerRepeatToggle.classList.contains('active')) {
+  if (editingRule || drawerRepeatToggle.classList.contains('active')) {
     const result = buildRuleFromDrawer({ start, end, category, activity, note });
     if (result.error) { drawerError.textContent = result.error; positionDrawer(); return; }
     newRule = result.rule;
   }
   drawerError.textContent = '';
+
+  // Editing an existing recurring event from the list
+  if (editingRule) {
+    const old = recurringRules[editingRecurIdx];
+    if (!old) { closeDrawer(); return; }
+    if (old.from) newRule.from = old.from; else delete newRule.from;
+    recurringRules[editingRecurIdx] = newRule;
+    expandedRecurCats.add(category);
+    closeDrawer();
+    renderRecurringList();
+    await saveRecurringRules();
+    statusMsg.textContent = `Updated "${activity}".`;
+    return;
+  }
 
   if (editingId) {
     const idx = events.findIndex(e => e.id === editingId);
@@ -3462,22 +3488,36 @@ function renderRecurringList() {
   });
 }
 
-function beginEditRecur(idx) {
+function beginEditRecur(idx, anchorY) {
   const rule = recurringRules[idx];
   if (!rule) return;
   editingRecurIdx = idx;
-  weekdayPicksEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+  openDrawer({ start: rule.start, end: rule.end, category: rule.category, activity: rule.activity, note: rule.note || '' }, anchorY);
+
+  drawerWeekdayPicks.querySelectorAll('input').forEach(cb => {
     cb.checked = rule.weekdays.includes(cb.value);
   });
-  recurStartSel.value = rule.start;
-  recurEndSel.value = rule.end;
-  recurCategorySel.value = rule.category;
-  recurActivityInput.value = rule.activity;
-  recurNoteInput.value = rule.note || '';
-  document.getElementById('addRecurBtn').textContent = 'Save changes';
-  document.getElementById('cancelRecurEditBtn').style.display = 'inline-block';
-  document.getElementById('recurError').textContent = '';
-  recurActivityInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Work out what the repeat boxes should show for this rule
+  const base = rule.from || currentDateStr();
+  const daysBetween = (a, b) => Math.max(1, Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1);
+  if (rule.everyHours) {
+    repeatUnit.value = 'hours'; repeatLastUnit = 'hours';
+    repeatNum.value = rule.everyHours; repeatNum.step = '0.5'; repeatNum.min = '0.5';
+    if (rule.until) { repeatUnit2.value = 'days'; repeatNum2.value = daysBetween(base, rule.until); }
+    else { repeatUnit2.value = 'forever'; }
+  } else if (rule.until) {
+    repeatUnit.value = 'days'; repeatLastUnit = 'days';
+    repeatNum.value = daysBetween(base, rule.until);
+  } else {
+    repeatUnit.value = 'forever'; repeatLastUnit = 'forever';
+  }
+
+  document.getElementById('drawerModeLabel').style.display = 'block';
+  drawerRepeatToggle.style.display = 'none';
+  document.getElementById('drawerDelete').style.display = 'none';
+  setRepeatOpen(true);
+  positionDrawer();
 }
 
 function endEditRecur() {
@@ -3560,7 +3600,7 @@ recurringListEl.addEventListener('click', async (e) => {
     return;
   }
   if (e.target.classList.contains('edit-btn')) {
-    beginEditRecur(Number(e.target.dataset.idx));
+    beginEditRecur(Number(e.target.dataset.idx), e.clientY);
     return;
   }
   if (e.target.classList.contains('remove-btn')) {
