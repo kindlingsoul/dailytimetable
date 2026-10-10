@@ -2408,7 +2408,7 @@ calendarGrid.addEventListener('click', (e) => {
   if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; return; }
   if (e.target !== calendarGrid && e.target !== linesLayer && e.target !== eventsLayer) return;
   const start = minutesFromClientY(e.clientY);
-  openDrawer({ start, end: Math.min(DAY_END, start + 60), category: categories[0] ? categories[0].name : 'Other', activity: '', note: '' });
+  openDrawer({ start, end: Math.min(DAY_END, start + 30), category: categories[0] ? categories[0].name : 'Other', activity: '', note: '' });
 });
 
 /* ---------- Dragging & resizing existing blocks ---------- */
