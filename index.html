@@ -433,11 +433,55 @@ select:focus, input:focus, textarea:focus{
 /* --- Event drawer --- */
 .event-drawer{
   display:none;
-  border:1px dashed var(--accent);
+  position:fixed;
+  z-index:60;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(440px, calc(100vw - 24px));
+  max-height:calc(100vh - 24px);
+  overflow-y:auto;
+  border:1px solid var(--accent);
   background:var(--accent-soft);
   padding:14px;
-  border-radius:2px;
-  margin-bottom:26px;
+  border-radius:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  margin-bottom:0;
+}
+.drawer-chips{ display:flex; gap:6px; margin-bottom:10px; }
+.chip-btn{
+  background:transparent; color:var(--ink); border:1px solid var(--line);
+  padding:3px 10px; font-size:11px; border-radius:12px;
+  text-transform:none; letter-spacing:normal;
+}
+.chip-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.drawer-repeat{
+  border:1px dashed var(--accent); background:var(--paper);
+  padding:10px; border-radius:2px; margin-bottom:10px;
+}
+.drawer-repeat .weekday-picks{ margin-bottom:8px; }
+.repeat-label{
+  display:block; font-family:'IBM Plex Mono',monospace; font-size:10px;
+  text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:4px;
+}
+.repeat-row{ display:flex; gap:8px; align-items:center; }
+.repeat-box{
+  width:104px; height:38px; background-color:#fff; border:1px solid var(--muted);
+  border-radius:8px; font-family:'Inter',sans-serif; font-size:15px; color:var(--ink);
+  text-align:center; padding:0;
+}
+input.repeat-box{ -moz-appearance:textfield; }
+input.repeat-box::-webkit-outer-spin-button,
+input.repeat-box::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+select.repeat-box{
+  -webkit-appearance:none; appearance:none; text-align-last:center; padding:0 18px 0 8px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2323241F' stroke-width='1.5'/></svg>");
+  background-repeat:no-repeat; background-position:right 10px center;
+}
+.event-drawer .repeat-box{ width:104px; }
+.event-drawer input[type="checkbox"]{ width:auto; }
+.repeat-hint{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent);
+  margin:8px 0 0; min-height:0;
 }
 
 .drawer-row{
@@ -1727,7 +1771,7 @@ button:hover{ opacity:0.85; }
     </div>
   </div>
 
-  <div class="event-drawer" id="eventDrawer">
+    <div class="event-drawer" id="eventDrawer">
     <div class="drawer-row">
       <div class="field">
         <label for="drawerStart">Start</label>
@@ -1746,10 +1790,45 @@ button:hover{ opacity:0.85; }
       <label for="drawerActivity">Activity</label>
       <input type="text" id="drawerActivity" placeholder="e.g. Deep Work">
     </div>
-    <div class="field">
+    <div class="drawer-chips">
+      <button type="button" class="chip-btn" id="drawerNoteToggle">+ Note</button>
+      <button type="button" class="chip-btn" id="drawerRepeatToggle">&#8635; Repeat</button>
+    </div>
+    <div class="field" id="drawerNoteWrap" style="display:none; margin-bottom:10px;">
       <label for="drawerNote">Note</label>
       <textarea id="drawerNote" placeholder="Add more detail..."></textarea>
     </div>
+    <div class="drawer-repeat" id="drawerRepeatWrap" style="display:none;">
+      <div class="weekday-picks" id="drawerWeekdayPicks"></div>
+      <label class="repeat-label" id="repeatLabel1">Repeat for</label>
+      <div class="repeat-row">
+        <input type="number" class="repeat-box" id="repeatNum" min="1" step="1" value="4">
+        <select class="repeat-box" id="repeatUnit">
+          <option value="hours">Hours</option>
+          <option value="days">Days</option>
+          <option value="weeks" selected>Weeks</option>
+          <option value="months">Months</option>
+          <option value="years">Years</option>
+          <option value="forever">Forever</option>
+        </select>
+      </div>
+      <div id="repeatForWrap" style="display:none; margin-top:8px;">
+        <label class="repeat-label">For</label>
+        <div class="repeat-row">
+          <input type="number" class="repeat-box" id="repeatNum2" min="1" step="1" value="4">
+          <select class="repeat-box" id="repeatUnit2">
+            <option value="days">Days</option>
+            <option value="weeks" selected>Weeks</option>
+            <option value="months">Months</option>
+            <option value="years">Years</option>
+            <option value="forever">Forever</option>
+          </select>
+        </div>
+      </div>
+      <p class="repeat-hint" id="repeatHint1"></p>
+      <p class="repeat-hint" id="repeatHint2" style="margin-top:2px;"></p>
+    </div>
+    <p class="recurring-error" id="drawerError"></p>
     <div class="drawer-actions">
       <button class="secondary" id="drawerCancel">Cancel</button>
       <button class="secondary" id="drawerDelete">Delete</button>
@@ -2289,6 +2368,152 @@ const drawerEnd = document.getElementById('drawerEnd');
 const drawerCategory = document.getElementById('drawerCategory');
 const drawerActivity = document.getElementById('drawerActivity');
 const drawerNote = document.getElementById('drawerNote');
+const drawerError = document.getElementById('drawerError');
+const drawerNoteWrap = document.getElementById('drawerNoteWrap');
+const drawerNoteToggle = document.getElementById('drawerNoteToggle');
+const drawerRepeatWrap = document.getElementById('drawerRepeatWrap');
+const drawerRepeatToggle = document.getElementById('drawerRepeatToggle');
+const drawerWeekdayPicks = document.getElementById('drawerWeekdayPicks');
+const repeatLabel1 = document.getElementById('repeatLabel1');
+const repeatNum = document.getElementById('repeatNum');
+const repeatUnit = document.getElementById('repeatUnit');
+const repeatForWrap = document.getElementById('repeatForWrap');
+const repeatNum2 = document.getElementById('repeatNum2');
+const repeatUnit2 = document.getElementById('repeatUnit2');
+const repeatHint1 = document.getElementById('repeatHint1');
+const repeatHint2 = document.getElementById('repeatHint2');
+let drawerAnchorY = 0;
+let repeatLastUnit = 'weeks';
+
+orderedWeekdays.forEach(day => {
+  const label = document.createElement('label');
+  label.innerHTML = `<input type="checkbox" value="${day}"> ${day.slice(0, 3)}`;
+  drawerWeekdayPicks.appendChild(label);
+});
+
+function positionDrawer() {
+  const margin = 12;
+  const h = eventDrawer.offsetHeight;
+  let top = drawerAnchorY + margin;
+  if (top + h > window.innerHeight - margin) top = drawerAnchorY - h - margin;
+  top = Math.max(margin, Math.min(top, window.innerHeight - h - margin));
+  eventDrawer.style.top = top + 'px';
+}
+
+function setNoteOpen(open) {
+  drawerNoteWrap.style.display = open ? 'block' : 'none';
+  drawerNoteToggle.classList.toggle('active', open);
+  drawerNoteToggle.textContent = open ? '\u2212 Note' : '+ Note';
+}
+function setRepeatOpen(open) {
+  drawerRepeatWrap.style.display = open ? 'block' : 'none';
+  drawerRepeatToggle.classList.toggle('active', open);
+  if (open) updateRepeatUI();
+}
+drawerNoteToggle.addEventListener('click', () => {
+  setNoteOpen(drawerNoteWrap.style.display === 'none');
+  positionDrawer();
+});
+drawerRepeatToggle.addEventListener('click', () => {
+  setRepeatOpen(drawerRepeatWrap.style.display === 'none');
+  positionDrawer();
+});
+
+function prettyDate(str) {
+  const [y, m, d] = str.split('-');
+  return `${Number(d)} ${monthNames[Number(m) - 1].slice(0, 3)} ${y}`;
+}
+
+// Last day of "repeat for N units", counted from the day on screen.
+function repeatEndDate(n, unit) {
+  if (unit === 'forever') return null;
+  const [y, m, d] = currentDateStr().split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  if (unit === 'days') dt.setDate(dt.getDate() + n);
+  if (unit === 'weeks') dt.setDate(dt.getDate() + n * 7);
+  if (unit === 'months') dt.setMonth(dt.getMonth() + n);
+  if (unit === 'years') dt.setFullYear(dt.getFullYear() + n);
+  dt.setDate(dt.getDate() - 1);
+  return dateToStr(dt);
+}
+
+// Start times for an "every N hours" event, kept inside the day.
+function hourlyStartTimes(start, end, everyHours) {
+  const dur = end - start;
+  const times = [];
+  if (!(everyHours > 0) || dur <= 0 || everyHours * 60 < dur) return times;
+  for (let t = start; t + dur <= DAY_END && times.length < 48; t += everyHours * 60) {
+    times.push(Math.round(t));
+  }
+  return times;
+}
+
+function updateRepeatUI() {
+  const unit = repeatUnit.value;
+  const hourly = unit === 'hours';
+  if (unit !== repeatLastUnit) {
+    if (hourly) { repeatNum.value = 2; repeatNum.step = '0.5'; repeatNum.min = '0.5'; }
+    else if (repeatLastUnit === 'hours') { repeatNum.value = 4; repeatNum.step = '1'; repeatNum.min = '1'; }
+    repeatLastUnit = unit;
+  }
+  repeatForWrap.style.display = hourly ? 'block' : 'none';
+  repeatLabel1.textContent = hourly ? 'Repeat every' : 'Repeat for';
+  repeatNum.style.display = unit === 'forever' ? 'none' : 'block';
+  repeatNum2.style.display = repeatUnit2.value === 'forever' ? 'none' : 'block';
+
+  const startText = prettyDate(currentDateStr());
+  const endText = (n, u) => {
+    if (u === 'forever') return 'no end date';
+    if (!(n >= 1)) return 'enter a number of 1 or more';
+    return 'ends ' + prettyDate(repeatEndDate(n, u));
+  };
+  if (hourly) {
+    const n = parseFloat(repeatNum.value);
+    const s = Number(drawerStart.value), en = Number(drawerEnd.value);
+    if (!(n > 0)) repeatHint1.textContent = 'Enter an interval above 0';
+    else if (en <= s) repeatHint1.textContent = 'Set an end time after the start time';
+    else if (n * 60 < en - s) repeatHint1.textContent = 'The gap must be at least as long as the event';
+    else {
+      const ts = hourlyStartTimes(s, en, n);
+      repeatHint1.textContent = ts.length + ' a day: ' + ts.slice(0, 4).map(formatTime).join(', ') + (ts.length > 4 ? ' \u2026' : '');
+    }
+    repeatHint2.textContent = `Starts ${startText} \u00B7 ` + endText(parseInt(repeatNum2.value, 10), repeatUnit2.value);
+  } else {
+    repeatHint1.textContent = `Starts ${startText} \u00B7 ` + endText(parseInt(repeatNum.value, 10), unit);
+    repeatHint2.textContent = '';
+  }
+  positionDrawer();
+}
+[repeatNum, repeatNum2].forEach(el => el.addEventListener('input', updateRepeatUI));
+[repeatUnit, repeatUnit2].forEach(el => el.addEventListener('change', updateRepeatUI));
+[drawerStart, drawerEnd].forEach(el => el.addEventListener('change', () => {
+  if (drawerRepeatWrap.style.display !== 'none') updateRepeatUI();
+}));
+
+// Turns the Repeat section into a saved recurring rule, or an error message.
+function buildRuleFromDrawer({ start, end, category, activity, note }) {
+  const weekdays = Array.from(drawerWeekdayPicks.querySelectorAll('input:checked')).map(cb => cb.value);
+  if (weekdays.length === 0) return { error: 'Pick at least one day to repeat on.' };
+  const unit = repeatUnit.value;
+  const rule = { activity, start, end, category, weekdays, note, from: currentDateStr() };
+  if (unit === 'hours') {
+    const n = parseFloat(repeatNum.value);
+    if (!(n > 0)) return { error: 'Enter how many hours between repeats.' };
+    if (Math.abs(n * 2 - Math.round(n * 2)) > 1e-9) return { error: 'Use steps of half an hour, like 1, 1.5 or 2.' };
+    if (n * 60 < end - start) return { error: 'The gap between repeats must be at least as long as the event.' };
+    rule.everyHours = n;
+    if (repeatUnit2.value !== 'forever') {
+      const n2 = parseInt(repeatNum2.value, 10);
+      if (!(n2 >= 1)) return { error: 'Enter how long to keep repeating.' };
+      rule.until = repeatEndDate(n2, repeatUnit2.value);
+    }
+  } else if (unit !== 'forever') {
+    const n = parseInt(repeatNum.value, 10);
+    if (!(n >= 1)) return { error: `Enter how many ${unit} to repeat for.` };
+    rule.until = repeatEndDate(n, unit);
+  }
+  return { rule };
+}
 
 /* ---------- Build static calendar chrome (axis + gridlines) ---------- */
 calendarAxis.style.height = (TOTAL_H + VPAD * 2) + 'px';
@@ -2365,23 +2590,45 @@ function closeDrawer() {
 
 document.getElementById('drawerCancel').addEventListener('click', closeDrawer);
 
-document.getElementById('drawerSave').addEventListener('click', () => {
+document.getElementById('drawerSave').addEventListener('click', async () => {
   if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; closeDrawer(); return; }
   const start = Number(drawerStart.value);
   const end = Number(drawerEnd.value);
-  if (end <= start) { statusMsg.textContent = 'End time must be after start time.'; return; }
+  if (end <= start) { drawerError.textContent = 'End time must be after start time.'; positionDrawer(); return; }
   const category = drawerCategory.value;
   const activity = drawerActivity.value.trim() || category;
   const note = drawerNote.value;
+
+  let newRule = null;
+  if (drawerRepeatToggle.classList.contains('active')) {
+    const result = buildRuleFromDrawer({ start, end, category, activity, note });
+    if (result.error) { drawerError.textContent = result.error; positionDrawer(); return; }
+    newRule = result.rule;
+  }
+  drawerError.textContent = '';
+
   if (editingId) {
     const idx = events.findIndex(e => e.id === editingId);
     if (idx > -1) events[idx] = { id: editingId, start, end, category, activity, note };
   } else {
     events.push({ id: nextId(), start, end, category, activity, note });
   }
+  // An hourly repeat also fills in the rest of today's slots
+  if (newRule && newRule.everyHours && newRule.weekdays.includes(weekdayDisplay.textContent)) {
+    hourlyStartTimes(start, end, newRule.everyHours).slice(1).forEach(t => {
+      events.push({ id: nextId(), start: t, end: t + (end - start), category, activity, note });
+    });
+  }
   renderEvents();
   closeDrawer();
   scheduleAutoSave();
+
+  if (newRule) {
+    recurringRules.push(newRule);
+    expandedRecurCats.add(category);
+    renderRecurringList();
+    await saveRecurringRules();
+  }
 });
 
 document.getElementById('drawerDelete').addEventListener('click', () => {
@@ -2408,7 +2655,7 @@ calendarGrid.addEventListener('click', (e) => {
   if (currentDayLocked) { statusMsg.textContent = `This day is locked (${currentDayLockLabel}) — timetable editing is disabled.`; return; }
   if (e.target !== calendarGrid && e.target !== linesLayer && e.target !== eventsLayer) return;
   const start = minutesFromClientY(e.clientY);
-  openDrawer({ start, end: Math.min(DAY_END, start + 30), category: categories[0] ? categories[0].name : 'Other', activity: '', note: '' });
+    openDrawer({ start, end: Math.min(DAY_END, start + 30), category: categories[0] ? categories[0].name : 'Other', activity: '', note: '' }, e.clientY);
 });
 
 /* ---------- Dragging & resizing existing blocks ---------- */
@@ -2547,7 +2794,7 @@ eventsLayer.addEventListener('click', (e) => {
   if (!block) return;
   if (suppressGridClick) return; // this click was the end of a drag, not a tap
   const ev = events.find(x => x.id === block.dataset.id);
-  if (ev) openDrawer(ev);
+    if (ev) openDrawer(ev, e.clientY);
 });
 
 /* ---------- Date / weekday controls ---------- */
@@ -3192,7 +3439,7 @@ function renderRecurringList() {
       li.innerHTML = `
         <div class="rec-info">
           ${rule.activity} &middot; ${boundaryLabel(rule.start)} \u2013 ${boundaryLabel(rule.end)}
-          <span class="rec-days">${rule.weekdays.map(d => d.slice(0, 3)).join(', ')}${rule.note ? ' &middot; has note' : ''}</span>
+                              <span class="rec-days">${rule.everyHours ? 'Every ' + rule.everyHours + (rule.everyHours === 1 ? ' hour' : ' hours') + ' &middot; ' : ''}${rule.weekdays.map(d => d.slice(0, 3)).join(', ')}${rule.until ? ' &middot; until ' + prettyDate(rule.until) : ''}${rule.note ? ' &middot; has note' : ''}</span>
         </div>
         <div class="rec-actions">
           <button class="edit-btn" data-idx="${idx}">Edit</button>
@@ -3261,6 +3508,12 @@ document.getElementById('addRecurBtn').addEventListener('click', async () => {
   recurError.textContent = '';
 
   const ruleData = { activity, start, end, category, weekdays, note };
+    if (editingRecurIdx !== null) {
+    const old = recurringRules[editingRecurIdx];
+    if (old && old.from) ruleData.from = old.from;
+    if (old && old.until) ruleData.until = old.until;
+    if (old && old.everyHours) ruleData.everyHours = old.everyHours;
+  }
   const wasEditing = editingRecurIdx !== null;
 
   if (wasEditing) {
@@ -3309,16 +3562,28 @@ recurringListEl.addEventListener('click', async (e) => {
   }
 });
 
-function applyRecurringDefaults(weekday) {
+function ruleAppliesOn(rule, weekday, dateStr) {
+  if (!rule.weekdays.includes(weekday)) return false;
+  if (rule.from && dateStr < rule.from) return false;
+  if (rule.until && dateStr > rule.until) return false;
+  return true;
+}
+function ruleOccurrences(rule) {
+  if (rule.everyHours) {
+    const dur = rule.end - rule.start;
+    const times = hourlyStartTimes(rule.start, rule.end, rule.everyHours);
+    if (times.length) return times.map(t => ({ start: t, end: t + dur }));
+  }
+  return [{ start: rule.start, end: rule.end }];
+}
+function applyRecurringDefaults(weekday, dateStr) {
   recurringRules.forEach(rule => {
-    if (!rule.weekdays.includes(weekday)) return;
-    events.push({
-      id: nextId(),
-      start: rule.start,
-      end: rule.end,
-      category: rule.category,
-      activity: rule.activity,
-      note: rule.note || ''
+    if (!ruleAppliesOn(rule, weekday, dateStr)) return;
+    ruleOccurrences(rule).forEach(o => {
+      events.push({
+        id: nextId(), start: o.start, end: o.end,
+        category: rule.category, activity: rule.activity, note: rule.note || ''
+      });
     });
   });
 }
@@ -3392,14 +3657,14 @@ async function loadDay() {
     } else {
       clearForm();
       currentDayIsSaved = false;
-      applyRecurringDefaults(weekday);
+      applyRecurringDefaults(weekday, currentDateStr());
       renderEvents();
       statusMsg.textContent = 'No saved plan yet — showing your recurring defaults for ' + weekday + '.';
     }
   } catch (err) {
     clearForm();
     currentDayIsSaved = false;
-    applyRecurringDefaults(weekday);
+    applyRecurringDefaults(weekday, currentDateStr());
     renderEvents();
     statusMsg.textContent = 'No saved plan yet — showing your recurring defaults for ' + weekday + '.';
   }
@@ -3898,10 +4163,11 @@ async function renderWeekView() {
     } else {
       // No saved plan for this day yet — show recurring defaults, same as
       // the daily planner does until the day gets its own saved plan.
-      const weekdayName = orderedWeekdays[i];
-      dayEvents = recurringRules
-        .filter(rule => rule.weekdays.includes(weekdayName))
-        .map(rule => ({ start: rule.start, end: rule.end, category: rule.category, activity: rule.activity, note: rule.note || '' }));
+            const weekdayName = orderedWeekdays[i];
+      recurringRules.forEach(rule => {
+        if (!ruleAppliesOn(rule, weekdayName, dateStr)) return;
+        ruleOccurrences(rule).forEach(o => dayEvents.push({ start: o.start, end: o.end, category: rule.category, activity: rule.activity, note: rule.note || '' }));
+      });
     }
     dayEvents.forEach(ev => {
       const block = document.createElement('div');
