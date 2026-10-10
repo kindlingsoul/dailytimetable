@@ -2402,7 +2402,7 @@ function positionDrawer() {
 }
 
 function setNoteOpen(open) {
-  drawerNoteWrap.style.display = open ? 'block' : 'none';
+  drawerNoteWrap.style.display = open ? 'flex' : 'none';
   drawerNoteToggle.classList.toggle('active', open);
   drawerNoteToggle.textContent = open ? '\u2212 Note' : '+ Note';
 }
@@ -3605,7 +3605,7 @@ recurringListEl.addEventListener('click', async (e) => {
   }
   if (e.target.classList.contains('remove-btn')) {
     const idx = Number(e.target.dataset.idx);
-    if (editingRecurIdx !== null) endEditRecur(); // array indices shift after a removal — safest to drop out of edit mode
+    if (editingRecurIdx !== null) closeDrawer(); // array indices shift after a removal — safest to drop out of edit mode
     recurringRules.splice(idx, 1);
     renderRecurringList();
     await saveRecurringRules();
