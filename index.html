@@ -2395,9 +2395,9 @@ document.getElementById('drawerDelete').addEventListener('click', () => {
 /* ---------- Creating a new event by clicking empty grid space ---------- */
 function minutesFromClientY(clientY) {
   const rect = calendarGrid.getBoundingClientRect();
-  const y = clientY - rect.top;
+  const y = clientY - rect.top - VPAD;   // subtract the top padding
   let minutes = DAY_START + (y / SLOT_H) * SLOT_MIN;
-  minutes = Math.round(minutes / SLOT_MIN) * SLOT_MIN;
+  minutes = Math.floor(minutes / SLOT_MIN) * SLOT_MIN;   // floor, not round
   return Math.max(DAY_START, Math.min(DAY_END - SLOT_MIN, minutes));
 }
 
