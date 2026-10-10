@@ -2572,16 +2572,26 @@ function renderEvents() {
 }
 
 /* ---------- Drawer ---------- */
-function openDrawer(ev) {
+function openDrawer(ev, anchorY) {
   editingId = ev.id || null;
   drawerStart.value = ev.start;
   drawerEnd.value = ev.end;
   drawerCategory.value = ev.category;
   drawerActivity.value = ev.activity || '';
   drawerNote.value = ev.note || '';
+  drawerError.textContent = '';
+  setNoteOpen(!!ev.note);
+  drawerWeekdayPicks.querySelectorAll('input').forEach(cb => {
+    cb.checked = (cb.value === weekdayDisplay.textContent);
+  });
+  repeatUnit.value = 'weeks'; repeatLastUnit = 'weeks';
+  repeatNum.value = 4; repeatNum.step = '1'; repeatNum.min = '1';
+  repeatUnit2.value = 'weeks'; repeatNum2.value = 4;
+  setRepeatOpen(false);
   document.getElementById('drawerDelete').style.display = editingId ? 'inline-block' : 'none';
   eventDrawer.style.display = 'block';
-  eventDrawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  drawerAnchorY = (typeof anchorY === 'number') ? anchorY : window.innerHeight / 2;
+  positionDrawer();
 }
 function closeDrawer() {
   eventDrawer.style.display = 'none';
